@@ -4,7 +4,7 @@ import requests
 import json
 import time
 import os
-from flask import jsonify
+# from flask import jsonify
 from openai import OpenAI
 from openai import AzureOpenAI
 from handyllm import OpenAIClient
@@ -54,8 +54,6 @@ class GPT4Parser:
                 engine="gpt-4-1106-preview",
                 messages = message
             ).call()
-            with open('output.txt', 'w') as file:
-                file.write(response['choices'][0]['message']['content'])
             return response['choices'][0]['message']['content']
         except Exception:
             return self.chat_local(message)
@@ -98,8 +96,6 @@ class AzureParser:
             model=deployment_name,
             messages = message
         )
-        with open('output.txt', 'w') as file:
-            file.write(response.choices[0].message.content)
         return response.choices[0].message.content
         #except Exception:
         #    return self.chat_local(message)

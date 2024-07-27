@@ -1,5 +1,4 @@
 import json
-from datetime import datetime
 
 def save_to_json(data, filename):
     with open(filename, "w", encoding="utf-8") as f:
@@ -19,15 +18,4 @@ def save_to_html(data, filename):
 def read_from_json(filename):
     with open(filename, "r", encoding="utf-8") as f:
         data = json.load(f)
-
-def format_data(type, url, time = "", path = [], value = "", urlTarget = ""):
-    if time is None or "":
-        time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    return {
-        "type": type,
-        "url": url,
-        "time": time,
-        "path": path,
-        "value": value,
-        "urlTarget": urlTarget
-    }
+    return data
