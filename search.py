@@ -14,7 +14,7 @@ class SearchEngine:
     """搜索引擎类"""
     def __init__(self):
         options = webdriver.ChromeOptions()
-        options.add_argument("--headless") # 无头模式
+        # options.add_argument("--headless") # 无头模式
         options.add_argument("--disable-gpu") # 禁用GPU加速
         self.driver = webdriver.Chrome(options=options) # 主浏览器
         tmp = read_from_json("locators.json") 
@@ -25,7 +25,7 @@ class SearchEngine:
         print(self.locators)
         # 元素解析器
         self.introduction_parser = GPT4Parser("I will provide you two contents, a keyword and a long text. Extract the most relevant information that introduce the keyword from the long text and replace some of white space to increase the readability for human. Only provide the extracted information, not extra explanations. ")
-        self.result_url_parser = GPT4Parser("I will provide you two things, a target and a list of website urls. The urls are the results while searching the target in some search engine. You need to choose the best url which contains the most text directly decribing the target. Only provide the url, not extra explanations.")
+        self.result_url_parser = GPT4Parser("I will provide you two things, a target and a list of html a tags. The tags are the results while searching the target in some search engine. You need to choose the tags which contain the text directly decribing the target and extract their hrefs. Sort the list by the relavance of the href to the keyword and make its form be  with form of href1|href2| ... . Only provide the hrefs, not extra explanations.")
         self.parser = GPT4Parser("I'll provide the aimed element and some pieces of html. Provide the appropriate locator for each element. The format of each response should be like (By.CSS_SELECTOR, '.t a'). Only provide the locator, not extra explanations.")
     
     # 将定位器添加到缓存中
@@ -105,6 +105,7 @@ class SearchEngine:
     def search(self, url, keyword):
         print("Searching for ", keyword, " on ", url)
         self.driver.get(url)
+        print("begin search")
         
         search_box = None
         # 先找缓存
@@ -136,18 +137,17 @@ class SearchEngine:
         new_url = self.driver.current_url
         html = self.driver.page_source
         
-        result_url = self.find_best_results_page(new_url, html)
+        result_urls = self.find_best_results_page(keyword, new_url, html)
+        intro = ''
         
-        self.driver.get(result_url)
-        html = self.get_html(result_url)
-        
-        # print(result_url)
-        
-        introduction = self.find_introduction(keyword, html)
-        source = f"来源：{result_url}"
-        
-        return introduction + '\n' + source
-
+        for result_url in result_urls:
+            print(f"Handling {result_url}")
+            self.driver.get(result_url)
+            html = self.get_html(result_url)
+            source = f" 来源：{result_url}\n"
+            intro += self.find_introduction(keyword, html) + source
+        introduction = self.introduction_parser.parse(f"keyword: {keyword}\ncontent: {intro}")
+        return result_urls, introduction
     
     # 获取对应网址的HTML
     # 前提是已经将这个网址输入进去了
@@ -160,20 +160,14 @@ class SearchEngine:
             return None       
     
     # 在搜索后的界面中找到结果界面
-    def find_best_results_page(self, url: str, html: str) -> str:
+    def find_best_results_page(self, keyword: str, url: str, html: str) -> list:
         root = urlparse(url).scheme + "://" + urlparse(url).netloc
-        print(root)
         soup = BeautifulSoup(html, 'html.parser')
         links = soup.find_all('a')
-        choices = [url]
-        for link in links:
-            href = link.get('href', '')
-            href = href if href.startswith('http') else root + '/' + href
-            name = link.text
-            if keyword in name:
-                choices.append(href)
-        res_url = self.result_url_parser.parse("target: " + keyword + ", list: " + str(choices))
-        return res_url
+        choices = list(filter(lambda link: keyword in link.text, links))
+        hrefs = self.result_url_parser.parse("target: " + keyword + ", list: " + str(choices)).split('|')
+        res_urls = list(map(lambda href: href if href.startswith('http') else root + '/' + href, hrefs))
+        return res_urls
     
     # 在url界面中找到简介
     def find_introduction(self, keyword, html):
@@ -183,7 +177,8 @@ class SearchEngine:
         content = re.sub(r'\s+', ' ', raw)[:10000]
         fs = open('log.txt', 'w', encoding='utf-8')
         fs.write(content)
-        intro_text = self.introduction_parser.parse(f"keyword: {keyword}\ncontent: {content}")
+        raw = self.introduction_parser.parse(f"keyword: {keyword}\ncontent: {content}")
+        intro_text = self.introduction_parser.parse(f"keyword: {keyword}\ncontent: {raw}")
         return intro_text 
     
     # 利用GPT找到html中对应的element
@@ -262,26 +257,25 @@ class SearchEngine:
     def run(self, urls, keyword):
         search_results = {"keyword": keyword}
         for url in urls:
-            print(f"Searching for {keyword} in {url}")
-            search_result = self.search(url, keyword)
+            urls, introduction = self.search(url, keyword)
             self.open_new_tab()
             name = url.split("//")[1].split(".")[1]
-            search_results[name] = search_result
+            search_results[name] = {"introduction": introduction, "reference": urls}
             save_to_json(self.locators, "locators.json")
-            # print(search_result)
         save_to_json(search_results, f"{keyword}.json")
         self.close()
     
             
 if __name__ == "__main__":
     search_engine = SearchEngine()
-    keyword = "清华大学"
+    keyword = "马昱春"
     urls = [
         # "https://developer.mozilla.org/zh-CN/"
-        "https://www.bing.com",
-        "https://www.hao123.com/",
+        "https://www.bing.com"
+        # "https://www.hao123.com/",
         # "https://www.google.com",
-        "https://www.baidu.com"
+        # "https://www.baidu.com"
         # "https://oi-wiki.org/"
+        # "https://www.cs.tsinghua.edu.cn/"
     ]
     search_engine.run(urls, keyword)

@@ -46,5 +46,13 @@
                 ".md-search__input"
             ]
         }
+    },
+    "https://www.cs.tsinghua.edu.cn/": {
+        "locators": {
+            "searchbox": [
+                "id",
+                "showkeycode1017976"
+            ]
+        }
     }
 }

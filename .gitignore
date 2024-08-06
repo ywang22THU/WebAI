@@ -7,3 +7,5 @@ base.py
 shop.py
 parse.py
 *tmp*
+*.json
+!locators.json
