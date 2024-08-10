@@ -1,58 +1,44 @@
 {
     "https://www.bing.com": {
-        "locators": {
-            "searchbox": [
-                "id",
-                "sb_form_q"
-            ]
-        }
+        "searchbox": [
+            "id",
+            "sb_form_q"
+        ]
     },
     "https://www.baidu.com": {
-        "locators": {
-            "searchbox": [
-                "id",
-                "kw"
-            ]
-        }
+        "searchbox": [
+            "id",
+            "kw"
+        ]
     },
     "https://www.hao123.com/": {
-        "locators": {
-            "searchbox": [
-                "css selector",
-                ".textInput.input-hook"
-            ]
-        }
+        "searchbox": [
+            "css selector",
+            ".textInput.input-hook"
+        ]
     },
     "https://developer.mozilla.org/zh-CN/docs/Learn": {
-        "locators": {
-            "searchbox": [
-                "id",
-                "top-nav-search-input"
-            ]
-        }
+        "searchbox": [
+            "id",
+            "top-nav-search-input"
+        ]
     },
     "https://developer.mozilla.org/zh-CN/": {
-        "locators": {
-            "searchbox": [
-                "css selector",
-                "#top-nav-search-input"
-            ]
-        }
+        "searchbox": [
+            "css selector",
+            "#top-nav-search-input"
+        ]
     },
     "https://oi-wiki.org/": {
-        "locators": {
-            "searchbox": [
-                "css selector",
-                ".md-search__input"
-            ]
-        }
+        "searchbox": [
+            "css selector",
+            ".md-search__input"
+        ]
     },
     "https://www.cs.tsinghua.edu.cn/": {
-        "locators": {
-            "searchbox": [
-                "id",
-                "showkeycode1017976"
-            ]
-        }
+        "searchbox": [
+            "id",
+            "showkeycode1017976"
+        ]
     }
 }
