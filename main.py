@@ -1,7 +1,15 @@
-from test import test_search_engine
+from search import SearchEngine
 
-# 调用test_search_engine函数进行测试搜索引擎
-keyword = "清华大学"
-print("begin")
-test_search_engine(keyword)
-print("end")
+if __name__ == "__main__":
+    search_engine = SearchEngine()
+    keyword = "阴茎"
+    urls = [
+        # "https://developer.mozilla.org/zh-CN/"
+        "https://www.bing.com"
+        # "https://www.hao123.com/",
+        # "https://www.google.com",
+        # "https://www.baidu.com"
+        # "https://oi-wiki.org/"
+        # "https://www.cs.tsinghua.edu.cn/"
+    ]
+    search_engine.run(urls, keyword)

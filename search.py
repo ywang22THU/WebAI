@@ -8,6 +8,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.webdriver import WebDriver
 from bs4 import BeautifulSoup
 from utils import *
+from prompt import *
 from locator import LocatorHandler
 from GPTParser import GPT4Parser
 import time
@@ -18,9 +19,11 @@ class SearchEngine:
         self.driver: WebDriver = webdriver.Chrome() # 主浏览器
         self.locator_handler = LocatorHandler("locators.json") # 定位器缓存管理器
         # 元素解析器
-        self.introduction_parser = GPT4Parser("I will provide you two contents, a keyword and a long text. Extract the most relevant information that introduce the keyword from the long text and replace some of white space to increase the readability for human. Only provide the extracted information, not extra explanations. ")
-        self.result_url_parser = GPT4Parser("I will provide you two things, a target and a list of html a tags. The tags are the results while searching the target in some search engine. You need to choose the tags which contain the text directly decribing the target and extract their hrefs. Sort the list by the relavance of the href to the keyword and make its form be  with form of href1|href2| ... . Only provide the hrefs, not extra explanations.")
-        self.parser = GPT4Parser("I'll provide the aimed element and some pieces of html. Provide the appropriate locator for each element. The format of each response should be like (By.CSS_SELECTOR, '.t a'). Only provide the locator, not extra explanations.")
+        self.input_parser = GPT4Parser(get_input_prompt())
+        self.result_url_parser = GPT4Parser(get_res_urls_parser_prompt())
+        self.introduction_parser = GPT4Parser(get_intro_parser_prompt())
+        self.relavence_parser = GPT4Parser(get_relavence_parser_prompt())
+        # self.need_login_parser = GPT4Parser(get_need_login_prompt())
 
     # 尝试通过locator定位课件的element
     def try_locate(self, url, locator, element):
@@ -131,10 +134,19 @@ class SearchEngine:
     
     # 在搜索后的界面中找到结果界面
     def find_best_results_page(self, keyword: str, url: str, html: str) -> list:
+        def get_relavent(keyword, title) -> bool:
+            if title == '':
+                return False
+            if keyword in title:
+                return True
+            try:
+                return int(self.relavence_parser.parse(f"keyword: {keyword}\ntitle: {title}", True)) >=60
+            except Exception:
+                return False
         root = urlparse(url).scheme + "://" + urlparse(url).netloc
         soup = BeautifulSoup(html, 'html.parser')
         links = soup.find_all('a')
-        choices = list(filter(lambda link: keyword in link.text, links))
+        choices = list(filter(lambda link: get_relavent(keyword, link.text), links))
         hrefs = self.result_url_parser.parse("target: " + keyword + ", list: " + str(choices)).split('|')
         res_urls = list(map(lambda href: href if href.startswith('http') else root + '/' + href, hrefs))
         return res_urls
@@ -145,8 +157,6 @@ class SearchEngine:
         body = soup.find('body')
         raw = body.get_text()
         content = re.sub(r'\s+', ' ', raw)[:10000]
-        fs = open('log.txt', 'w', encoding='utf-8')
-        fs.write(content)
         raw = self.introduction_parser.parse(f"keyword: {keyword}\ncontent: {content}")
         intro_text = self.introduction_parser.parse(f"keyword: {keyword}\ncontent: {raw}")
         return intro_text 
@@ -173,7 +183,7 @@ class SearchEngine:
         choices = str(possible_elements)
         # 利用GPT找到尽可能符合要求的元素
         # 根据初始化时的规定，格式应该为(By.CSS_SELECTOR, '.t a')
-        response = self.parser.parse(f"element: {element}\nhtml:{choices}")
+        response = self.input_parser.parse(f"element: {element}\nhtml:{choices}")
         print(f"Response from GPT: {response}")
         # 将结果进行处理
         trimmed_str = response.strip("() ")
@@ -204,18 +214,3 @@ class SearchEngine:
         self.locator_handler.write_to_file()
         save_to_json(search_results, f"{keyword}.json")
         self.close()
-    
-            
-if __name__ == "__main__":
-    search_engine = SearchEngine()
-    keyword = "马昱春"
-    urls = [
-        # "https://developer.mozilla.org/zh-CN/"
-        "https://www.bing.com"
-        # "https://www.hao123.com/",
-        # "https://www.google.com",
-        # "https://www.baidu.com"
-        # "https://oi-wiki.org/"
-        # "https://www.cs.tsinghua.edu.cn/"
-    ]
-    search_engine.run(urls, keyword)

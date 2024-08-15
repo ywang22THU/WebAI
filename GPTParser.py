@@ -9,6 +9,7 @@ from openai import OpenAI
 from openai import AzureOpenAI
 from handyllm import OpenAIClient
 
+MAX_RECURSION_TIME = 5
 
 client = AzureOpenAI(
     api_key="a4982552aedf4162b7582ce9c31aa977",
@@ -32,14 +33,16 @@ class GPT4Parser:
             api_version="2023-12-01-preview",
             api_base = "https://pcg-east-us-2.openai.azure.com/"
         )
+        self.recursion_time = 0
 
-    def parse(self, message):
-        tmp_messages = self.messages
-        tmp_messages.append({'role':'user', 'content':message})
-        if self.local:
-            return self.chat_local(tmp_messages)
-        else:
-            return self.chat(tmp_messages)
+    def parse(self, message, clear_history=False):
+        self.recursion_time = 0
+        self.messages.append({'role':'user', 'content':message})
+        response = self.chat_local(self.messages) if self.local else self.chat(self.messages)
+        if clear_history:
+            self.messages = self.messages[:1]
+        return response
+        
 
     def chat(self, message):
         url = "http://101.6.41.93:22288/chat"
@@ -48,15 +51,27 @@ class GPT4Parser:
         return json.loads(response.text)['result']['content']
 
     def chat_local(self, message):
-        # print(message)
+        self.recursion_time += 1
         try:
             response = self.client.chat(
                 engine="gpt-4-1106-preview",
                 messages = message
             ).call()
+            if "error" not in response:
+                usage = response["usage"]
+                prompt_tokens = usage["prompt_tokens"]
+                completion_tokens = usage["completion_tokens"]
+                print(f"Request cost is "
+                    f"${'{0:.2f}'.format(prompt_tokens / 1000 * 0.01 + completion_tokens / 1000 * 0.03)}",
+                    )
+            else:
+                return response["error"]["message"]
             return response['choices'][0]['message']['content']
-        except Exception:
-            return self.chat_local(message)
+        except Exception as e:
+            if self.recursion_time < MAX_RECURSION_TIME:
+                return self.chat_local(message)
+            else:
+                return None
 
     def add_examples(self, examples):
         self.messages += examples

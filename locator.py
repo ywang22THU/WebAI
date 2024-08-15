@@ -5,10 +5,6 @@ class LocatorHandler:
         self.file_name = file_name
         self.data: dict = self.read_from_file()
     
-    def __init__(self, data: dict):
-        self.file_name = None
-        self.data = data
-    
     def __del__(self):
         self.write_to_file()
 
