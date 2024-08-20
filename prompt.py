@@ -9,10 +9,12 @@ def get_input_prompt() -> str:
 
 def get_res_urls_parser_prompt() -> str:
     prompt =  ""
-    prompt += "I will provide you two things, a target and a list of html a tags. "
+    prompt += "I will provide you two things, a target and a list of html <a> tags. "
     prompt += "The tags are the results while searching the target in some search websites. "
     prompt += "You need to choose the tags which contain the text directly decribing the target, "
     prompt += "and extract their hrefs. "
+    prompt += "The tags should not direct the user to a page with video. "
+    prompt += "This means that you need to exclude all the <a> tags whose href contains 'video' or something relevant. "
     prompt += "Sort the list by the relavance of the href to the keyword. "
     prompt += "Make sure their form is href1|href2| ... . "
     prompt += "Only provide the hrefs, not extra explanations."
@@ -42,5 +44,16 @@ def get_need_login_prompt() -> str:
     prompt += "You need to judge that if the website need the user to login. "
     prompt += "You can judge this by the class name or id name of the tags. "
     prompt += "If these information is not enough, you can also judge by other things in the tags. "
+    prompt += "Attention, need login means that the website force the user to login. "
+    prompt += "It means the user cannot get any useful information without login. "
     prompt += "Only provide \"True\" or \"False\" onbehalf of the necessarity of login, not extra explanations. "
+    return prompt
+
+def get_result_locator_prompt() -> str:
+    prompt =  ""
+    prompt += "I will provide you a html tag. "
+    prompt += "Provide the appropriate locator for the tag. "
+    prompt += "The locator should contain the property to locate and the concrete value of the tag."
+    prompt += "The format of each response should be like (By.CSS_SELECTOR, '.t a'). "
+    prompt += "Only provide the locator, not extra explanations."
     return prompt

@@ -2,7 +2,7 @@ from search import SearchEngine
 
 if __name__ == "__main__":
     search_engine = SearchEngine()
-    keyword = "红黑树"
+    keyword = "位运算"
     urls = [
         # "https://developer.mozilla.org/zh-CN/"
         # "https://www.bing.com"

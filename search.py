@@ -22,7 +22,7 @@ class SearchEngine:
         self.input_parser = GPT4Parser(get_input_prompt())
         self.result_url_parser = GPT4Parser(get_res_urls_parser_prompt())
         self.introduction_parser = GPT4Parser(get_intro_parser_prompt())
-        self.relavence_parser = GPT4Parser(get_relavence_parser_prompt())
+        self.result_locator_parser = GPT4Parser(get_result_locator_prompt())
         self.need_login_parser = GPT4Parser(get_need_login_prompt())
 
     # 尝试通过locator定位课件的element
@@ -121,8 +121,8 @@ class SearchEngine:
             self.driver.get(result_url)
             html = self.get_html(result_url)
             source = f" 来源：{result_url}\n"
-            intro += self.find_introduction(keyword, html) + source
-        introduction = self.introduction_parser.parse(f"keyword: {keyword}\ncontent: {intro}")
+            intro += self.find_introduction(keyword, html, intro) + source
+        introduction = self.introduction_parser.parse(f"keyword: {keyword}\ncontent: {intro}", clear_history=True)
         return result_urls, introduction
     
     # 获取对应网址的HTML
@@ -199,40 +199,43 @@ class SearchEngine:
         def get_relavent(keyword, title) -> bool:
             if title == '':
                 return False
-            if keyword in title:
+            if LCS(keyword, title) >= len(keyword) * 0.7:
                 return True
-            try:
-                return int(self.relavence_parser.parse(f"keyword: {keyword}\ntitle: {title}", True)) >=60
-            except Exception:
-                return False
+            return False
+        urls = []
         results = self.locator_handler.get_data(url, 'results')
         if not results:
-            return list(filter(lambda link: get_relavent(keyword, link.text), links))
+            relavent_links = list(filter(lambda link: get_relavent(keyword, link.text), links))
+            for index, link in enumerate(relavent_links):
+                locator = self.result_locator_parser.parse(f"link: {link}", clear_history=True)
+                self.test_and_add_locator(url, locator, f'{keyword}_result_{index}')
+            urls = list(map(lambda link: link.get('href', ''), relavent_links))      
+        # else:
+        #     pass         
+        return urls
     
     # 在搜索后的界面中找到结果界面
     def find_best_results_page(self, keyword: str, url: str, html: str) -> list:
         root = urlparse(url).scheme + "://" + urlparse(url).netloc
         soup = BeautifulSoup(html, 'html.parser')
         links = soup.find_all('a')
-        choices = self.handle_possible_links(url, keyword, links)
-        cur_part = 0
-        all_hrefs = []
-        while cur_part < len(choices):
-            part_hrefs = self.result_url_parser.parse(f"target: {keyword}\nlist: {choices[cur_part:cur_part+20]}", clear_history=True).split('|')
-            all_hrefs.extend(part_hrefs)
-            cur_part += 20
-        res_urls = list(map(lambda href: href if href.startswith('http') else root + '/' + href, all_hrefs))
+        all_hrefs = self.handle_possible_links(url, keyword, links)
+        hrefs = self.result_url_parser.parse(f"target: {keyword}\nlist: {all_hrefs}").split('|')
+        res_urls = list(map(lambda href: href if href.startswith('http') else root + '/' + href, hrefs))
         print(len(res_urls))
         return res_urls
     
     # 在url界面中找到简介
-    def find_introduction(self, keyword, html):
+    def find_introduction(self, keyword, html, prompt=''):
         soup = BeautifulSoup(html, 'html.parser')
         body = soup.find('body')
         raw = body.get_text()
         content = re.sub(r'\s+', ' ', raw)[:10000]
-        raw = self.introduction_parser.parse(f"keyword: {keyword}\ncontent: {content}")
-        intro_text = self.introduction_parser.parse(f"keyword: {keyword}\ncontent: {raw}")
+        print("raw")
+        raw = self.introduction_parser.parse(f"keyword: {keyword}\ncontent: {content}", clear_history=True)
+        print("intro")
+        intro_text = self.introduction_parser.parse(f"keyword: {keyword}\nprompt: {prompt}\ncontent: {raw}", clear_history=True)
+        print("done")
         return intro_text 
     
     # 在很多url中搜索keyword
