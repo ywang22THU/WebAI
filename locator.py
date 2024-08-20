@@ -21,9 +21,9 @@ class LocatorHandler:
             return None
     
     # 拿到url页面的ele元素
-    def get_data(self, url, ele) -> tuple[str, str]:
+    def get_data(self, url, ele) -> list:
         try:
-            return tuple(self.data[url][ele])
+            return self.data[url][ele]
         except:
             return None
     

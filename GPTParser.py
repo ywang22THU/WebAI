@@ -68,7 +68,8 @@ class GPT4Parser:
                 return response["error"]["message"]
             return response['choices'][0]['message']['content']
         except Exception as e:
-            if self.recursion_time < MAX_RECURSION_TIME:
+            print(f"Error: {e} \n Caused by message: {str(message)[:100]} ...")
+            if self.recursion_time <= MAX_RECURSION_TIME:
                 return self.chat_local(message)
             else:
                 return None

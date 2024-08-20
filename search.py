@@ -6,7 +6,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.webdriver import WebDriver
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, ResultSet
 from utils import *
 from prompt import *
 from locator import LocatorHandler
@@ -23,7 +23,7 @@ class SearchEngine:
         self.result_url_parser = GPT4Parser(get_res_urls_parser_prompt())
         self.introduction_parser = GPT4Parser(get_intro_parser_prompt())
         self.relavence_parser = GPT4Parser(get_relavence_parser_prompt())
-        # self.need_login_parser = GPT4Parser(get_need_login_prompt())
+        self.need_login_parser = GPT4Parser(get_need_login_prompt())
 
     # 尝试通过locator定位课件的element
     def try_locate(self, url, locator, element):
@@ -76,11 +76,9 @@ class SearchEngine:
         self.driver.switch_to.window(new_tab)
     
     # 查询操作
-    def search(self, url, keyword):
-        print("Searching for ", keyword, " on ", url)
-        self.driver.get(url)
-        print("begin search")
-        
+    def search(self, url, keyword, open=True):
+        if open:
+            self.driver.get(url)
         search_box = None
         box_locator = self.locator_handler.get_data(url, "searchbox")
         # 先找缓存
@@ -98,21 +96,26 @@ class SearchEngine:
             search_box = self.handler_mannul(url, element="searchbox")
         
         # 往输入框中输入关键词并提交
+        search_box.clear()
         search_box.send_keys(keyword)
-        
         pre_window_num = len(self.driver.window_handles)
         search_box.submit() # submit()模拟按下回车键
-        time.sleep(1)
+        time.sleep(2)
         new_window_num = len(self.driver.window_handles)
         if new_window_num == pre_window_num + 1 :
             self.driver.switch_to.window(self.driver.window_handles[-1])
-
         new_url = self.driver.current_url
-        html = self.driver.page_source
+        new_html = self.get_html(new_url) # html嵌套怎么办
         
-        result_urls = self.find_best_results_page(keyword, new_url, html)
+        if self.need_login_or_not(new_url, new_html):
+            login_result = input("请登录您的账户，并且登录之后输入[y/n]表示您是否登陆成功\n")
+            if login_result == "n":
+                return (None, None)
+            new_url = self.driver.current_url
+            return self.search(new_url, keyword, False)
+        
+        result_urls = self.find_best_results_page(keyword, new_url, new_html)
         intro = ''
-        
         for result_url in result_urls:
             print(f"Handling {result_url}")
             self.driver.get(result_url)
@@ -132,35 +135,6 @@ class SearchEngine:
             print(f"Failed to get {url}: {e}")
             return None       
     
-    # 在搜索后的界面中找到结果界面
-    def find_best_results_page(self, keyword: str, url: str, html: str) -> list:
-        def get_relavent(keyword, title) -> bool:
-            if title == '':
-                return False
-            if keyword in title:
-                return True
-            try:
-                return int(self.relavence_parser.parse(f"keyword: {keyword}\ntitle: {title}", True)) >=60
-            except Exception:
-                return False
-        root = urlparse(url).scheme + "://" + urlparse(url).netloc
-        soup = BeautifulSoup(html, 'html.parser')
-        links = soup.find_all('a')
-        choices = list(filter(lambda link: get_relavent(keyword, link.text), links))
-        hrefs = self.result_url_parser.parse("target: " + keyword + ", list: " + str(choices)).split('|')
-        res_urls = list(map(lambda href: href if href.startswith('http') else root + '/' + href, hrefs))
-        return res_urls
-    
-    # 在url界面中找到简介
-    def find_introduction(self, keyword, html):
-        soup = BeautifulSoup(html, 'html.parser')
-        body = soup.find('body')
-        raw = body.get_text()
-        content = re.sub(r'\s+', ' ', raw)[:10000]
-        raw = self.introduction_parser.parse(f"keyword: {keyword}\ncontent: {content}")
-        intro_text = self.introduction_parser.parse(f"keyword: {keyword}\ncontent: {raw}")
-        return intro_text 
-    
     # 利用GPT找到html中对应的element
     # element都是一些描述性的语句
     def element_locator_gpt(self, url, html, element):
@@ -177,9 +151,9 @@ class SearchEngine:
         # 找到有可能和搜索相关的几种元素
         forms = soup.find_all('form')
         inputs = soup.find_all('input')
-        links = soup.find_all('a')
+        # links = soup.find_all('a')
         buttons = soup.find_all('button')
-        possible_elements = forms + inputs + links + buttons
+        possible_elements = forms + inputs + buttons
         choices = str(possible_elements)
         # 利用GPT找到尽可能符合要求的元素
         # 根据初始化时的规定，格式应该为(By.CSS_SELECTOR, '.t a')
@@ -198,19 +172,78 @@ class SearchEngine:
     def test_and_add_locator(self, url, locator, element):
         aim = self.try_locate(url, locator, element)
         if aim:
-            self.locator_handler.set_data(url, element, locator)
+            self.locator_handler.set_data(url, element, list(locator))
+            self.locator_handler.write_to_file()
             return aim
         else:
             return None
+        
+    def need_login_or_not(self, url, html):
+        # 首先预处理html
+        soup = BeautifulSoup(html, 'html.parser')
+        # 去除所有的脚本
+        for script in soup.find_all('script'):
+            script.decompose()
+        # 找到有可能和搜索相关的几种元素
+        iframes = soup.find_all('iframe')
+        forms = soup.find_all('form')
+        inputs = soup.find_all('input')
+        buttons = soup.find_all('button')
+        possible_elements = iframes + forms + inputs + buttons
+        choices = str(possible_elements)
+        response = self.need_login_parser.parse(f"The website is: {url}. Possible login elements: {choices}", clear_history=True)
+        return True if response == 'True' else False
+    
+    def handle_possible_links(self, url, keyword, links: ResultSet) -> list:
+        # 将搜索结果的By保存在locator.json中，防止因为link过多导致API调用爆炸 TODO
+        def get_relavent(keyword, title) -> bool:
+            if title == '':
+                return False
+            if keyword in title:
+                return True
+            try:
+                return int(self.relavence_parser.parse(f"keyword: {keyword}\ntitle: {title}", True)) >=60
+            except Exception:
+                return False
+        results = self.locator_handler.get_data(url, 'results')
+        if not results:
+            return list(filter(lambda link: get_relavent(keyword, link.text), links))
+    
+    # 在搜索后的界面中找到结果界面
+    def find_best_results_page(self, keyword: str, url: str, html: str) -> list:
+        root = urlparse(url).scheme + "://" + urlparse(url).netloc
+        soup = BeautifulSoup(html, 'html.parser')
+        links = soup.find_all('a')
+        choices = self.handle_possible_links(url, keyword, links)
+        cur_part = 0
+        all_hrefs = []
+        while cur_part < len(choices):
+            part_hrefs = self.result_url_parser.parse(f"target: {keyword}\nlist: {choices[cur_part:cur_part+20]}", clear_history=True).split('|')
+            all_hrefs.extend(part_hrefs)
+            cur_part += 20
+        res_urls = list(map(lambda href: href if href.startswith('http') else root + '/' + href, all_hrefs))
+        print(len(res_urls))
+        return res_urls
+    
+    # 在url界面中找到简介
+    def find_introduction(self, keyword, html):
+        soup = BeautifulSoup(html, 'html.parser')
+        body = soup.find('body')
+        raw = body.get_text()
+        content = re.sub(r'\s+', ' ', raw)[:10000]
+        raw = self.introduction_parser.parse(f"keyword: {keyword}\ncontent: {content}")
+        intro_text = self.introduction_parser.parse(f"keyword: {keyword}\ncontent: {raw}")
+        return intro_text 
     
     # 在很多url中搜索keyword
     def run(self, urls, keyword):
         search_results = {"keyword": keyword}
         for url in urls:
-            urls, introduction = self.search(url, keyword)
+            res_urls, introduction = self.search(url, keyword)
             self.open_new_tab()
-            name = url.split("//")[1].split(".")[1]
-            search_results[name] = {"introduction": introduction, "reference": urls}
-        self.locator_handler.write_to_file()
+            if res_urls and introduction:
+                search_results[url] = {"introduction": introduction, "reference": res_urls}
+            else:
+                search_results[url] = {"introduction": "Fail to login", "reference": "None"}
         save_to_json(search_results, f"{keyword}.json")
         self.close()

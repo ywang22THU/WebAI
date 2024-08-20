@@ -29,16 +29,34 @@
             "#top-nav-search-input"
         ]
     },
-    "https://oi-wiki.org/": {
-        "searchbox": [
-            "css selector",
-            ".md-search__input"
-        ]
-    },
     "https://www.cs.tsinghua.edu.cn/": {
         "searchbox": [
             "id",
             "showkeycode1017976"
+        ]
+    },
+    "https://www.taobao.com": {
+        "searchbox": [
+            "css selector",
+            "#q"
+        ]
+    },
+    "https://s.taobao.com/search?commend=all&ie=utf8&initiative_id=tbindexz_20170306&localImgKey=&page=1&q=%E7%8E%A9%E5%85%B7&search_type=item&sourceId=tb.index&spm=a21bo.jianhua%2Fa.201856.d13&ssid=s5-e&tab=all": {
+        "searchbox": [
+            "css selector",
+            "#q"
+        ]
+    },
+    "https://s.taobao.com/search?commend=all&ie=utf8&initiative_id=tbindexz_20170306&localImgKey=&page=1&q=%E6%B8%85%E5%8D%8E%E5%91%A8%E8%BE%B9&search_type=item&sourceId=tb.index&spm=a21bo.jianhua%2Fa.201856.d13&ssid=s5-e&tab=all": {
+        "searchbox": [
+            "css selector",
+            "#q"
+        ]
+    },
+    "https://oi-wiki.org/": {
+        "searchbox": [
+            "css selector",
+            ".md-search__input"
         ]
     }
 }
