@@ -3,6 +3,10 @@
         "searchbox": [
             "id",
             "sb_form_q"
+        ],
+        "results": [
+            "css selector",
+            "ol#b_results"
         ]
     },
     "https://www.baidu.com": {
@@ -33,21 +37,13 @@
         "searchbox": [
             "id",
             "showkeycode1017976"
+        ],
+        "results": [
+            "css selector",
+            "a[href='info/1267/5846.htm']"
         ]
     },
     "https://www.taobao.com": {
-        "searchbox": [
-            "css selector",
-            "#q"
-        ]
-    },
-    "https://s.taobao.com/search?commend=all&ie=utf8&initiative_id=tbindexz_20170306&localImgKey=&page=1&q=%E7%8E%A9%E5%85%B7&search_type=item&sourceId=tb.index&spm=a21bo.jianhua%2Fa.201856.d13&ssid=s5-e&tab=all": {
-        "searchbox": [
-            "css selector",
-            "#q"
-        ]
-    },
-    "https://s.taobao.com/search?commend=all&ie=utf8&initiative_id=tbindexz_20170306&localImgKey=&page=1&q=%E6%B8%85%E5%8D%8E%E5%91%A8%E8%BE%B9&search_type=item&sourceId=tb.index&spm=a21bo.jianhua%2Fa.201856.d13&ssid=s5-e&tab=all": {
         "searchbox": [
             "css selector",
             "#q"
@@ -57,18 +53,6 @@
         "searchbox": [
             "css selector",
             ".md-search__input"
-        ]
-    },
-    "https://cn.bing.com/search?q=%E7%BA%A2%E9%BB%91%E6%A0%91&form=QBLH&rdr=1&rdrig=5E1902986DE54087B09AF00547BC54B9": {
-        "searchbox": [
-            "css selector",
-            "#sb_form_q"
-        ]
-    },
-    "https://cn.bing.com/search?q=%E7%BA%A2%E9%BB%91%E6%A0%91&qs=n&form=QBRE&sp=-1&lq=0&pq=&sc=0-0&sk=&cvid=84D749F3AE8F49F386FC01A722B549C9&ghsh=0&ghacc=0&ghpl=": {
-        "searchbox": [
-            "id",
-            "sb_form_q"
         ]
     }
 }

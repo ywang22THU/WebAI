@@ -26,16 +26,8 @@ def get_intro_parser_prompt() -> str:
     prompt += "The content in the text may be relavant or not to the keyword. "
     prompt += "Extract the most relevant information that introduce the keyword from the long text, "
     prompt += "and replace some of white space to increase the readability for human. "
+    prompt += "If the text contains some reference links, remove all of them. "
     prompt += "Only provide the extracted information, not extra explanations."
-    return prompt
-
-def get_relavence_parser_prompt() -> str:
-    prompt =  ""
-    prompt += "I will provide you two contents, a keyword and a title of a website. "
-    prompt += "You need to judge the relavance of the keyword to the title. "
-    prompt += "Provide a integer between 0 and 100 on behalf of the relavance."
-    prompt += "The bigger the integer, the more relavance the keyword has to the title. "
-    prompt += "Only provide the number, not extra explanations."
     return prompt
 
 def get_need_login_prompt() -> str:
