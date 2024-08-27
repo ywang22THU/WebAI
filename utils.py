@@ -42,7 +42,6 @@ def get_parents(ele: WebElement) -> list:
     """
     parents = [ele]
     while True:
-        print(len(parents))
         try:
             ele = ele.find_element(By.XPATH, "..")
             parents.append(ele)
@@ -56,7 +55,7 @@ def LCA(x: WebElement, y: WebElement):
     DOM树上两个节点的最近公共祖先
     """
     if x == y:
-        return BeautifulSoup(x.get_attribute("outerHTML"), "html.parser")
+        return x
     x_path = get_parents(x)
     y_path = get_parents(y)
     if len(x_path) > len(y_path):
@@ -66,5 +65,5 @@ def LCA(x: WebElement, y: WebElement):
     while x_path[0] != y_path[0]:
         x_path.pop(0)
         y_path.pop(0)
-    return BeautifulSoup(x_path[0].get_attribute("outerHTML"), "html.parser")
+    return x_path[0]
     

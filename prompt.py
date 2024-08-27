@@ -44,8 +44,11 @@ def get_need_login_prompt() -> str:
 def get_result_locator_prompt() -> str:
     prompt =  ""
     prompt += "I will provide you a html tag. "
-    prompt += "Provide the appropriate locator for the tag. "
-    prompt += "The locator should contain the property to locate and the concrete value of the tag."
-    prompt += "The format of each response should be like (By.CSS_SELECTOR, '.t a'). "
-    prompt += "Only provide the locator, not extra explanations."
+    prompt += "At first, judge that if this tag is a appropriate tag. "
+    prompt += "The appropriate tag means that the tag is the wrapper of the list of <a> tags, and it can be located by attributes. "
+    prompt += "If it is not appropriate, answer 'Not appropriate' immediately without explanation. "
+    prompt += "Otherwise, provide the locator for the appropriate tag, not the locator for the <a> tags. "
+    prompt += "The locator should contain the property to locate and the concrete value of the tag. "
+    prompt += "The format of locator should be like (METHOD, VALUE), for example (By.CSS_SELECTOR, '#kw'). "
+    prompt += "Only provide the 'Not appropriate' or the locator, not extra explanations."
     return prompt

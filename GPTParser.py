@@ -36,11 +36,11 @@ class GPT4Parser:
         self.recursion_time = 0
 
     def parse(self, message, clear_history=False):
+        if clear_history:
+            self.messages = self.messages[:1]
         self.recursion_time = 0
         self.messages.append({'role':'user', 'content':message})
         response = self.chat_local(self.messages) if self.local else self.chat(self.messages)
-        if clear_history:
-            self.messages = self.messages[:1]
         return response
         
 
@@ -68,11 +68,10 @@ class GPT4Parser:
                 return response["error"]["message"]
             return response['choices'][0]['message']['content']
         except Exception as e:
-            print(f"Error: {e} \n Caused by message: {str(message)[:100]} ...")
             if self.recursion_time <= MAX_RECURSION_TIME:
                 return self.chat_local(message)
             else:
-                return None
+                raise e
 
     def add_examples(self, examples):
         self.messages += examples
