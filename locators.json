@@ -7,7 +7,8 @@
         "results": [
             "css selector",
             "ol#b_results"
-        ]
+        ],
+        "need_login": false
     },
     "https://www.baidu.com": {
         "searchbox": [
@@ -47,7 +48,8 @@
         "searchbox": [
             "css selector",
             "#q"
-        ]
+        ],
+        "need_login": true
     },
     "https://oi-wiki.org/": {
         "searchbox": [

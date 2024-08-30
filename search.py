@@ -190,7 +190,7 @@ class SearchEngine:
         except:
             links = self.driver.find_elements(by=By.TAG_NAME, value='a')
             should_lca = True
-        relavent_links = list(filter(lambda link: get_relavent(keyword, link.text), links))
+        relavent_links = list(filter(lambda link: get_relavent(keyword, link.find_element(By.XPATH, '..').text), links))
         # 找到最合适的LCA存起来
         if should_lca:
             self.save_ancestor(url, relavent_links)
@@ -216,7 +216,7 @@ class SearchEngine:
         return intro_text 
     
     # 查询操作
-    def search(self, url, keyword, submitted=False):
+    def search(self, url, keyword, submitted=False, should_judge_login=True):
         if not submitted:
             self.driver.get(url)
         search_box = None
@@ -247,13 +247,23 @@ class SearchEngine:
         new_url = self.driver.current_url
         new_html = self.get_html(new_url) 
         
-        if not submitted and self.need_login_or_not(new_url, new_html):
-            login_result = input("请登录您的账户，并且登录之后输入[y/n]表示您是否登陆成功\n如果您认为当前界面无需登录，请输入[q]\n")
-            if login_result == "n":
-                raise fail_to_get_url(url)
-            return self.search(self.init_url, keyword, True)
+        if should_judge_login:
+            need_login = self.locator_handler.get_data(url, "need_login")
+            should_write = False
+            if need_login is None:
+                should_write = True
+                need_login = self.need_login_or_not(new_url, new_html)
+            if need_login:
+                login_result = input("请登录您的账户，并且登录之后输入[y/n]表示您是否登陆成功\n如果您认为当前界面无需登录，请输入[q]\n")
+                if login_result == "n":
+                    raise login_failed(url)
+                if login_result == "q":
+                    need_login = False
+            if should_write:
+                self.locator_handler.set_data(url, "need_login", need_login)
+            return self.search(self.init_url, keyword, True, False)
         
-        result_urls = self.find_best_results_page(keyword, new_url, new_html)
+        result_urls = self.find_best_results_page(keyword, new_url)
         intro = ''
         for result_url in result_urls:
             print(f"Handling {result_url}")
@@ -273,6 +283,7 @@ class SearchEngine:
                 self.init_url = url
                 ref_urls, introduction = self.search(url, keyword)
             except Exception as e:
+                print(e)
                 ref_urls, introduction = [], f"We catch an error while searching: \n {e}"
             search_results[url] = {"introduction": introduction, "reference": ref_urls}
         save_to_json(search_results, f"{keyword}.json")
