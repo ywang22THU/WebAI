@@ -29,7 +29,7 @@ class LocatorHandler:
     
     # 设置url页面的ele元素
     def set_data(self, url, ele, val):
-        if not isinstance(val, list) or not self.data:
+        if not self.data:
             return
         if url not in self.data.keys():
             self.data[url] = {}

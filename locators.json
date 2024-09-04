@@ -60,5 +60,16 @@
             "css selector",
             ".md-search__input"
         ]
+    },
+    "https://www.xiaohongshu.com/explore": {
+        "searchbox": [
+            "id",
+            "search-input"
+        ],
+        "need_login": true,
+        "results": [
+            "class name",
+            "feeds-container"
+        ]
     }
 }

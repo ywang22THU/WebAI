@@ -2,16 +2,16 @@ import re
 import os
 import shutil
 from threading import Thread, Lock
-from concurrent.futures.thread import ThreadPoolExecutor
 from collections import Counter
 from urllib.parse import urlparse
 from selenium import webdriver
+from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.webdriver import WebDriver
-from bs4 import BeautifulSoup, ResultSet
+from bs4 import BeautifulSoup
 from bs4.element import Tag
 from errors import *
 from utils import *
@@ -65,13 +65,13 @@ class SearchEngine:
     # 尝试通过locator定位组件的element
     def try_locate(self, url, locator, element):
         if not locator:
-            raise None
+            return None
         try:
             print(f"Locating {element} in {url} by {locator}")
             aim = WebDriverWait(self.driver, 10).until(EC.visibility_of_element_located(locator))
             return aim
         except:
-            raise None
+            return None
 
     # 人工处理，添加元素定位器
     # 注意是直接返回的HTML元素
@@ -135,20 +135,9 @@ class SearchEngine:
         else:
             return None
         
-    def need_login_or_not(self, url, html):
-        # 首先预处理html
-        soup = BeautifulSoup(html, 'html.parser')
-        # 去除所有的脚本
-        for script in soup.find_all('script'):
-            script.decompose()
-        # 找到有可能和搜索相关的几种元素
-        iframes = soup.find_all('iframe')
-        forms = soup.find_all('form')
-        inputs = soup.find_all('input')
-        buttons = soup.find_all('button')
-        possible_elements = iframes + forms + inputs + buttons
-        choices = str(possible_elements)
-        response = self.need_login_parser.parse(f"The website is: {url}. Possible login elements: {choices}", clear_history=True)
+    def need_login_or_not(self, url, keyword):
+        self.driver.save_screenshot(f'./tmp/{keyword}_login.png')
+        response = self.need_login_parser.parse(f'./tmp/{keyword}_login.png', url=url)
         return True if response == 'True' else False
     
     def classify_website(self, url, keyword):
@@ -196,16 +185,16 @@ class SearchEngine:
                 return False
             words = keyword.split(' ')
             lcs = reduce(lambda x, word: x + LCS(word, title), words, 0)
-            if lcs >= len(keyword) * 0.7:
+            if lcs >= len(keyword) * 0.5:
                 return True
             return False
         urls = []
         should_lca = False
         results = self.locator_handler.get_data(self.init_url, 'results')
-        try:
+        if results is not None:
             urls_wrapper: WebElement = self.try_locate(url, results, 'urls_wrapper')
             links = urls_wrapper.find_elements(by=By.TAG_NAME, value='a')
-        except:
+        else:
             links = self.driver.find_elements(by=By.TAG_NAME, value='a')
             should_lca = True
         relavent_links = list(filter(lambda link: get_relavent(keyword, link.find_element(By.XPATH, '..').text), links))
@@ -257,20 +246,19 @@ class SearchEngine:
         search_box.clear()
         search_box.send_keys(keyword)
         pre_window_num = len(self.driver.window_handles)
-        search_box.submit() # submit()模拟按下回车键
+        search_box.send_keys(Keys.ENTER) # submit()模拟按下回车键
         time.sleep(2)
         new_window_num = len(self.driver.window_handles)
         if new_window_num == pre_window_num + 1 :
             self.driver.switch_to.window(self.driver.window_handles[-1])
         new_url = self.driver.current_url
-        new_html = self.get_html(new_url) 
         
         if should_judge_login:
-            need_login = self.locator_handler.get_data(url, "need_login")
+            need_login = self.locator_handler.get_data(self.init_url, "need_login")
             should_write = False
             if need_login is None:
                 should_write = True
-                need_login = self.need_login_or_not(new_url, new_html)
+                need_login = self.need_login_or_not(new_url, keyword)
             if need_login:
                 login_result = input("请登录您的账户，并且登录之后输入[y/n]表示您是否登陆成功\n如果您认为当前界面无需登录，请输入[q]\n")
                 if login_result == "n":
@@ -278,7 +266,7 @@ class SearchEngine:
                 if login_result == "q":
                     need_login = False
             if should_write:
-                self.locator_handler.set_data(url, "need_login", need_login)
+                self.locator_handler.set_data(self.init_url, "need_login", need_login)
             return self.search(self.init_url, keyword, True, False)
         
         self.classify_website(new_url, keyword)

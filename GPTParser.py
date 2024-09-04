@@ -126,7 +126,6 @@ class PictureParser:
             return response.choices[0].message.content
         except Exception as e:
             raise e
-
 class AzureParser:
     def __init__(self, prompt, local = True):
         self.local = local
