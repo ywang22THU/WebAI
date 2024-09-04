@@ -9,3 +9,4 @@ parse.py
 *tmp*
 *.json
 !locators.json
+gpt4v.py

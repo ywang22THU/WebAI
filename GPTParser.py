@@ -3,7 +3,7 @@ import openai
 import requests
 import json
 import time
-import os
+import base64
 # from flask import jsonify
 from openai import OpenAI
 from openai import AzureOpenAI
@@ -18,6 +18,12 @@ client = AzureOpenAI(
 )
 
 deployment_name = "gpt-4-1106-preview" # 在 Azure OpenAI Studio 里创建的模型名称
+
+def image_to_base64(image_path):
+    with open(image_path, "rb") as img_file:
+        base64_image = base64.b64encode(img_file.read()).decode('utf-8')
+        # print(base64_image)
+        return base64_image
 
 
 class GPT4Parser:
@@ -54,24 +60,19 @@ class GPT4Parser:
         self.recursion_time += 1
         try:
             response = self.client.chat(
-                engine="gpt-4-1106-preview",
+                engine="gpt-4o",
                 messages = message
             ).call()
             if "error" not in response:
                 usage = response["usage"]
                 prompt_tokens = usage["prompt_tokens"]
                 completion_tokens = usage["completion_tokens"]
-                print(f"Request cost is "
-                    f"${'{0:.2f}'.format(prompt_tokens / 1000 * 0.01 + completion_tokens / 1000 * 0.03)}",
-                    )
+                print(f"Prompt tokens: {prompt_tokens}, Completion tokens: {completion_tokens}")
             else:
                 return response["error"]["message"]
             return response['choices'][0]['message']['content']
         except Exception as e:
-            if self.recursion_time <= MAX_RECURSION_TIME:
-                return self.chat_local(message)
-            else:
-                raise e
+            raise e
 
     def add_examples(self, examples):
         self.messages += examples
@@ -80,6 +81,51 @@ class GPT4Parser:
         self.messages.append({'role':'user', 'content':query})
         self.messages.append({'role':'system', 'content':answer})
 
+class PictureParser:
+    def __init__(self, prompt, key = None):
+        self.prompt = prompt
+        self.client = AzureOpenAI(
+            api_key= key or "ccc220011aa14b3691ae7969db27aef2",
+            api_version="2024-02-01",
+            # azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+            azure_endpoint="https://pcg-sweden-central.openai.azure.com/",
+        )
+    
+    def parse(self, img_path, *args, **kwargs):
+        url = kwargs.get("url", "")
+        img_url = f"data:image/jpeg;base64,{image_to_base64(img_path)}"
+        messages = [
+            {
+                'role':'system',
+                'content': self.prompt,
+            },
+            {
+                'role':'user', 
+                'content':[
+                    {
+                        "type": "text",
+                        "text": f"The url of the website is: {url}",
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": img_url},
+                    }
+                ]
+            }
+        ]
+        try:
+            response = self.client.chat.completions.create(
+                model='gpt-4o',
+                messages=messages,
+                max_tokens=1024
+            )
+            usage = response.usage
+            prompt_tokens = usage.prompt_tokens
+            completion_tokens = usage.completion_tokens
+            print(f"Prompt tokens: {prompt_tokens}, Completion tokens: {completion_tokens}")
+            return response.choices[0].message.content
+        except Exception as e:
+            raise e
 
 class AzureParser:
     def __init__(self, prompt, local = True):
@@ -88,6 +134,12 @@ class AzureParser:
         #     self.client = OpenAI(http_client=httpx.Client(proxies={'http://':'http://localhost:7890','https://':'https://localhost:7890'},transport=httpx.HTTPTransport(local_address="0.0.0.0")),
         #                          organization='org-veTDIexYdGbOKcYt8GW4SNOH',api_key= "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" )
         self.messages = [{'role':'system','content':prompt}]
+        self.client = AzureOpenAI(
+            api_key="ccc220011aa14b3691ae7969db27aef2",
+            api_version="2024-02-01",
+            # azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+            azure_endpoint="https://pcg-sweden-central.openai.azure.com/",
+        )
 
     def parse(self, message):
         tmp_messages = self.messages
@@ -104,9 +156,8 @@ class AzureParser:
         return json.loads(response.text)['result']['content']
 
     def chat_local(self, message):
-        global client
-        global deployment_name
-        # print(message)
+        # deployment_name = "vision" # 在 Azure OpenAI Studio 里创建的模型名称
+        deployment_name = "gpt-4o"
         response = client.chat.completions.create(
             model=deployment_name,
             messages = message
@@ -125,7 +176,7 @@ class AzureParser:
 
 if __name__ == "__main__":
     a = time.time()
-    parser = GPT4Parser("我会给你一段语言描述的电脑操作，请你将这段操作转化为若干个基础步骤，并分行表示。请注意，有些描述时作为一步的步骤可能包含不止一个基础步骤，请你将这类步骤也拆分为若干步骤。")
+    parser = AzureParser("我会给你一段语言描述的电脑操作，请你将这段操作转化为若干个基础步骤，并分行表示。请注意，有些描述时作为一步的步骤可能包含不止一个基础步骤，请你将这类步骤也拆分为若干步骤。")
     response = parser.parse("1.在桌面点击文件管理图表，右键点击“文件管理器”2.点击起动器（或者：win键），打开文件管理器3.反复快速打开多个窗口"
     )
     b = time.time()

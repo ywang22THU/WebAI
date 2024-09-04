@@ -1,4 +1,8 @@
 import re
+import os
+import shutil
+from threading import Thread, Lock
+from concurrent.futures.thread import ThreadPoolExecutor
 from collections import Counter
 from urllib.parse import urlparse
 from selenium import webdriver
@@ -13,9 +17,13 @@ from errors import *
 from utils import *
 from prompt import *
 from locator import LocatorHandler
-from GPTParser import GPT4Parser
+from GPTParser import GPT4Parser, PictureParser
 from functools import reduce
 import time
+
+classify_lock = Lock()
+get_html_lock = Lock()
+intro_parse_lock = Lock()
 
 class SearchEngine: 
     """搜索引擎类"""
@@ -23,12 +31,14 @@ class SearchEngine:
         self.init_url = ''
         self.driver: WebDriver = webdriver.Chrome() # 主浏览器
         self.locator_handler = LocatorHandler("locators.json") # 定位器缓存管理器
+        self.catagory = None # 当前搜索的类别
         # 元素解析器
         self.input_parser = GPT4Parser(get_input_prompt())
         self.result_url_parser = GPT4Parser(get_res_urls_parser_prompt())
         self.introduction_parser = GPT4Parser(get_intro_parser_prompt())
         self.result_locator_parser = GPT4Parser(get_result_locator_prompt())
-        self.need_login_parser = GPT4Parser(get_need_login_prompt())
+        self.need_login_parser = PictureParser(get_need_login_prompt())
+        self.info_classifier = PictureParser(get_website_category_prompt())
     
     # 获取对应网址的HTML
     def get_html(self, url):
@@ -141,6 +151,14 @@ class SearchEngine:
         response = self.need_login_parser.parse(f"The website is: {url}. Possible login elements: {choices}", clear_history=True)
         return True if response == 'True' else False
     
+    def classify_website(self, url, keyword):
+        def get_result():
+            classify_lock.acquire()
+            self.catagory = self.info_classifier.parse(img_path=f'./tmp/{keyword}.png', url=url)
+            classify_lock.release()
+        self.driver.save_screenshot(f'./tmp/{keyword}.png')
+        Thread(target=get_result).start()
+    
     def save_ancestor(self, url, tags: list[WebElement]):
         print(f"Saving ancestor for {self.init_url}")
         ancestors: list[WebElement] = []
@@ -206,13 +224,13 @@ class SearchEngine:
         return res_urls
     
     # 在url界面中找到简介
-    def find_introduction(self, keyword, html, prompt=''):
+    def find_introduction(self, keyword, html, hint = ''):
         soup = BeautifulSoup(html, 'html.parser')
         body: Tag = soup.find('body')
         raw = body.get_text()
         content = re.sub(r'\s+', ' ', raw)[:10000]
         raw = self.introduction_parser.parse(f"keyword: {keyword}\ncontent: {content}", clear_history=True)
-        intro_text = self.introduction_parser.parse(f"keyword: {keyword}\nprompt: {prompt}\ncontent: {raw}", clear_history=True)
+        intro_text = self.introduction_parser.parse(f"keyword: {keyword}\nhint: {hint}\ncontent: {raw}", clear_history=True)
         return intro_text 
     
     # 查询操作
@@ -263,6 +281,7 @@ class SearchEngine:
                 self.locator_handler.set_data(url, "need_login", need_login)
             return self.search(self.init_url, keyword, True, False)
         
+        self.classify_website(new_url, keyword)
         result_urls = self.find_best_results_page(keyword, new_url)
         intro = ''
         for result_url in result_urls:
@@ -276,6 +295,8 @@ class SearchEngine:
     
     # 在很多url中搜索keyword
     def run(self, urls, keyword):
+        if not os.path.exists('./tmp'):
+            os.mkdir('./tmp')
         search_results = {"keyword": keyword}
         for url in urls:
             self.open_new_tab()
@@ -288,3 +309,4 @@ class SearchEngine:
             search_results[url] = {"introduction": introduction, "reference": ref_urls}
         save_to_json(search_results, f"{keyword}.json")
         self.close()
+        shutil.rmtree('./tmp')

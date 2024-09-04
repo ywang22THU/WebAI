@@ -49,7 +49,11 @@
             "css selector",
             "#q"
         ],
-        "need_login": true
+        "need_login": true,
+        "results": [
+            "css selector",
+            ".Content--contentInner--QVTcU0M"
+        ]
     },
     "https://oi-wiki.org/": {
         "searchbox": [
