@@ -1,6 +1,6 @@
 from utils import *
 
-class LocatorHandler:
+class CacheHandler:
     def __init__(self, file_name: str):
         self.file_name = file_name
         self.data: dict = self.read_from_file()

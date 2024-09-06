@@ -13,11 +13,10 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.webdriver import WebDriver
 from bs4 import BeautifulSoup
 from bs4.element import Tag
-from errors import *
 from utils import *
 from prompt import *
-from locator import LocatorHandler
-from GPTParser import GPT4Parser, PictureParser
+from cache.cache import CacheHandler
+from parser import LanguageParser, PictureParser
 from functools import reduce
 import time
 
@@ -29,14 +28,16 @@ class SearchEngine:
     """搜索引擎类"""
     def __init__(self):
         self.init_url = ''
-        self.driver: WebDriver = webdriver.Chrome() # 主浏览器
-        self.locator_handler = LocatorHandler("locators.json") # 定位器缓存管理器
+        options = webdriver.ChromeOptions()
+        options.add_argument('--headless')
+        self.driver: WebDriver = webdriver.Chrome(options=options) # 主浏览器
+        self.cache_handler = CacheHandler("./cache/cache.json") # 定位器缓存管理器
         self.catagory = None # 当前搜索的类别
         # 元素解析器
-        self.input_parser = GPT4Parser(get_input_prompt())
-        self.result_url_parser = GPT4Parser(get_res_urls_parser_prompt())
-        self.introduction_parser = GPT4Parser(get_intro_parser_prompt())
-        self.result_locator_parser = GPT4Parser(get_result_locator_prompt())
+        self.input_parser = LanguageParser(get_input_prompt())
+        self.result_url_parser = LanguageParser(get_res_urls_parser_prompt())
+        self.introduction_parser = LanguageParser(get_intro_parser_prompt())
+        self.result_locator_parser = LanguageParser(get_result_locator_prompt())
         self.need_login_parser = PictureParser(get_need_login_prompt())
         self.info_classifier = PictureParser(get_website_category_prompt())
     
@@ -46,7 +47,7 @@ class SearchEngine:
             html = self.driver.page_source
             return html
         except Exception as e:
-            raise fail_to_get_url(url, e)
+            raise RuntimeError(f"Failed to get URL: {url}\n{e}")
         
     # 关闭驱动器
     def close(self):
@@ -129,8 +130,8 @@ class SearchEngine:
     def test_and_add_locator(self, url, locator, element):
         aim = self.try_locate(url, locator, element)
         if aim:
-            self.locator_handler.set_data(url, element, list(locator))
-            self.locator_handler.write_to_file()
+            self.cache_handler.set_data(url, element, list(locator))
+            self.cache_handler.write_to_file()
             return aim
         else:
             return None
@@ -173,7 +174,7 @@ class SearchEngine:
             find_method = eval(parts[0])
             final_tag = parts[1].strip("'").strip("\"")
             results = [find_method, final_tag]
-            self.locator_handler.set_data(self.init_url, 'results', results)
+            self.cache_handler.set_data(self.init_url, 'results', results)
             print(f"Successfully save results list in {url} with {results}")
         except:
             print(f"Failed to save wrapper of searching results list in {url}")
@@ -190,7 +191,7 @@ class SearchEngine:
             return False
         urls = []
         should_lca = False
-        results = self.locator_handler.get_data(self.init_url, 'results')
+        results = self.cache_handler.get_data(self.init_url, 'results')
         if results is not None:
             urls_wrapper: WebElement = self.try_locate(url, results, 'urls_wrapper')
             links = urls_wrapper.find_elements(by=By.TAG_NAME, value='a')
@@ -227,7 +228,7 @@ class SearchEngine:
         if not submitted:
             self.driver.get(url)
         search_box = None
-        box_locator = self.locator_handler.get_data(self.init_url, "searchbox")
+        box_locator = self.cache_handler.get_data(self.init_url, "searchbox")
         # 先找缓存
         if box_locator:
             # 如果有缓存，则开始在其中找到对应的HTML元素
@@ -247,14 +248,14 @@ class SearchEngine:
         search_box.send_keys(keyword)
         pre_window_num = len(self.driver.window_handles)
         search_box.send_keys(Keys.ENTER) # submit()模拟按下回车键
-        time.sleep(2)
+        time.sleep(1.5)
         new_window_num = len(self.driver.window_handles)
         if new_window_num == pre_window_num + 1 :
             self.driver.switch_to.window(self.driver.window_handles[-1])
         new_url = self.driver.current_url
         
         if should_judge_login:
-            need_login = self.locator_handler.get_data(self.init_url, "need_login")
+            need_login = self.cache_handler.get_data(self.init_url, "need_login")
             should_write = False
             if need_login is None:
                 should_write = True
@@ -262,11 +263,11 @@ class SearchEngine:
             if need_login:
                 login_result = input("请登录您的账户，并且登录之后输入[y/n]表示您是否登陆成功\n如果您认为当前界面无需登录，请输入[q]\n")
                 if login_result == "n":
-                    raise login_failed(url)
+                    raise RuntimeError(f"User failed to login in {url}")
                 if login_result == "q":
                     need_login = False
             if should_write:
-                self.locator_handler.set_data(self.init_url, "need_login", need_login)
+                self.cache_handler.set_data(self.init_url, "need_login", need_login)
             return self.search(self.init_url, keyword, True, False)
         
         self.classify_website(new_url, keyword)
@@ -292,9 +293,8 @@ class SearchEngine:
                 self.init_url = url
                 ref_urls, introduction = self.search(url, keyword)
             except Exception as e:
-                print(e)
                 ref_urls, introduction = [], f"We catch an error while searching: \n {e}"
             search_results[url] = {"introduction": introduction, "reference": ref_urls}
-        save_to_json(search_results, f"{keyword}.json")
+        save_to_json(search_results, f"./data/{keyword}.json")
         self.close()
         shutil.rmtree('./tmp')

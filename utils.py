@@ -1,12 +1,11 @@
 import json
-from bs4 import BeautifulSoup
+import base64
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
 
 def save_to_json(data, filename):
     with open(filename, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
-    print(f"Data saved to {filename}.")
     
 def save_to_txt(data, filename):
     with open(filename, "w", encoding="utf-8") as f:
@@ -66,4 +65,11 @@ def LCA(x: WebElement, y: WebElement):
         x_path.pop(0)
         y_path.pop(0)
     return x_path[0]
+
+
+def image_to_base64(image_path):
+    with open(image_path, "rb") as img_file:
+        base64_image = base64.b64encode(img_file.read()).decode('utf-8')
+        return base64_image
+
     
