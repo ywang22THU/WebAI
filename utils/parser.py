@@ -19,7 +19,7 @@ class LanguageParser:
         try:
             response = self.client.chat(
                 engine="gpt-4-1106-preview",
-                messages = message
+                messages = self.messages
             ).call()
             if "error" not in response:
                 usage = response["usage"]

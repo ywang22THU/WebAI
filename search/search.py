@@ -13,25 +13,25 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.webdriver import WebDriver
 from bs4 import BeautifulSoup
 from bs4.element import Tag
-from algotithm import *
-from prompt import *
-from cache.cache import CacheHandler
+from search.algorithm import *
+from search.prompt import *
+from locate.locate import Locator
+from cache.cache import cache_handler
 from utils.utils import save_to_json
 from utils.parser import LanguageParser, PictureParser
 from functools import reduce
 import time
 
-classify_lock = Lock()
-get_html_lock = Lock()
-intro_parse_lock = Lock()
+catagory_lock = Lock()
 
 class SearchEngine: 
     """搜索引擎类"""
     def __init__(self, driver: WebDriver | None = None):
         self.init_url = ''
         self.driver: WebDriver = driver or webdriver.Chrome() # 主浏览器
-        self.cache_handler = CacheHandler("./cache/cache.json") # 定位器缓存管理器
+        self.cache_handler = cache_handler # 缓存管理器
         self.catagory = None # 当前搜索的类别
+        self.locator = Locator(self.driver) # 元素定位器
         # 元素解析器
         self.input_parser = LanguageParser(get_input_prompt())
         self.result_url_parser = LanguageParser(get_res_urls_parser_prompt())
@@ -62,91 +62,23 @@ class SearchEngine:
             self.driver.close()
         self.driver.switch_to.window(new_tab)
     
-    # 尝试通过locator定位组件的element
-    def try_locate(self, url, locator, element):
-        if not locator:
-            return None
-        try:
-            print(f"Locating {element} in {url} by {locator}")
-            aim = WebDriverWait(self.driver, 10).until(EC.visibility_of_element_located(locator))
-            return aim
-        except:
-            return None
-
-    # 人工处理，添加元素定位器
-    # 注意是直接返回的HTML元素
-    def handler_mannul(self, url, element: str):
-        while True:
-            new_locator = input(f"Please enter the {element} locator for the website {url}. The format should be like (By.CSS_SELECTOR, '.t a').")
-            aim = self.test_and_add_locator(url, new_locator, element)
-            if aim:
-                return aim
-    
-    # GPT添加元素定位器
-    # 注意是直接返回的HTML元素
-    def handler_llm(self, url, html, element):
-        if html is None:
-            html = self.get_html(url)
-        if type(html) is not str:
-            html = html.get_attribute("outerHTML")
-        # 多次定位提高定位成功率
-        for _ in range(5):
-            locator = self.element_locator_gpt(url, html, element)
-            aim = self.test_and_add_locator(url, locator, element)
-            if aim:
-                print(f"Successfully located the {element} by GPT.")
-                return aim
-        if not aim:
-            return None
-        
-    # 利用GPT找到html中对应的element
-    # element都是一些描述性的语句
-    def element_locator_gpt(self, url, html, element):
-        # 首先预处理html
-        soup = BeautifulSoup(html, 'html.parser')
-        # 去除所有的脚本
-        for script in soup.find_all('script'):
-            script.decompose()
-        # 找到有可能和搜索相关的几种元素
-        forms = soup.find_all('form')
-        inputs = soup.find_all('input')
-        buttons = soup.find_all('button')
-        possible_elements = forms + inputs + buttons
-        choices = str(possible_elements)
-        # 利用GPT找到尽可能符合要求的元素
-        # 根据初始化时的规定，格式应该为(By.CSS_SELECTOR, '.t a')
-        response: str = self.input_parser.parse(f"element: {element}\nhtml:{choices}")
-        # 将结果进行处理
-        trimmed_str = response.strip("() ")
-        parts = [part.strip() for part in trimmed_str.split(",")]
-        find_method = eval(parts[0])
-        final_tag = parts[1].strip("'").strip("\"")
-        result_tuple = (find_method, final_tag)
-        print(f"Locator for {element} in {url} is {result_tuple}")
-        return result_tuple
-    
-    # 尝试定位
-    def test_and_add_locator(self, url, locator, element):
-        aim = self.try_locate(url, locator, element)
-        if aim:
-            self.cache_handler.set_data(url, element, list(locator))
-            self.cache_handler.write_to_file()
-            return aim
-        else:
-            return None
-        
     def need_login_or_not(self, url, keyword):
         self.driver.save_screenshot(f'./tmp/{keyword}_login.png')
         response = self.need_login_parser.parse(f'./tmp/{keyword}_login.png', url=url)
         return True if response == 'True' else False
     
     def classify_website(self, url, keyword):
-        catagories: dict = self.cache_handler.get_data(url, 'catagories', {})
-        if keyword not in catagories:
-            img64 = self.driver.get_screenshot_as_base64()
-            self.catagory = self.info_classifier.parse(img=img64, path_or_code=False, url=url)
-        else:
-            self.catagory = catagories.get(keyword)
+        def _get_classification():
+            catagories: dict = self.cache_handler.get_data(url, 'catagories', {})
+            catagory_lock.acquire()
+            if keyword not in catagories:
+                img64 = self.driver.get_screenshot_as_base64()
+                self.catagory = self.info_classifier.parse(img=img64, path_or_code=False, url=url)
+                self.cache_handler.set_data(url, 'catagories', {keyword: self.catagory})
+            else:
+                self.catagory = catagories.get(keyword)
+            catagory_lock.release()
+        Thread(target=_get_classification).start()
 
     def save_ancestor(self, url, tags: list[WebElement]):
         print(f"Saving ancestor for {self.init_url}")
@@ -193,7 +125,7 @@ class SearchEngine:
         should_lca = False
         results = self.cache_handler.get_data(self.init_url, 'results')
         if results is not None:
-            urls_wrapper: WebElement = self.try_locate(url, results, 'urls_wrapper')
+            urls_wrapper: WebElement = self.locator.try_locate(url, results, 'urls_wrapper')
             links = urls_wrapper.find_elements(by=By.TAG_NAME, value='a')
         else:
             links = self.driver.find_elements(by=By.TAG_NAME, value='a')
@@ -227,21 +159,7 @@ class SearchEngine:
     def search(self, url, keyword, submitted=False, should_judge_login=True):
         if not submitted:
             self.driver.get(url)
-        search_box = None
-        box_locator = self.cache_handler.get_data(self.init_url, "searchbox")
-        # 先找缓存
-        if box_locator:
-            # 如果有缓存，则开始在其中找到对应的HTML元素
-            print("Find pre-defined search box locator for this website...")
-            search_box = self.try_locate(self.init_url, box_locator, "searchbox")
-        # 如果没有缓存，则利用GPT来定位
-        if not search_box:
-            print("Use llm to locate the search box...")
-            search_box = self.handler_llm(url, None, element="searchbox")
-        # GPT定位不成功则进行人工定位
-        if not search_box:
-            print("Mannually locate the search box...")
-            search_box = self.handler_mannul(url, element="searchbox")
+        search_box = self.locator.locate(self.init_url, url, "searchbox")
         
         # 往输入框中输入关键词并提交
         search_box.clear()
@@ -270,7 +188,7 @@ class SearchEngine:
                 self.cache_handler.set_data(self.init_url, "need_login", need_login)
             return self.search(self.init_url, keyword, True, False)
         
-        self.classify_website(new_url, keyword)
+        self.classify_website(self.init_url, keyword)
         result_urls = self.find_best_results_page(keyword, new_url)
         intro = ''
         for result_url in result_urls:
@@ -295,6 +213,7 @@ class SearchEngine:
             except Exception as e:
                 ref_urls, introduction = [], f"We catch an error while searching: \n {e}"
             search_results[url] = {"introduction": introduction, "reference": ref_urls}
+        print(f"Data saved to ./data/{keyword}.json")
         save_to_json(search_results, f"./data/{keyword}.json")
         self.close()
         shutil.rmtree('./tmp')

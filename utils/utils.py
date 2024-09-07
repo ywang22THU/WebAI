@@ -20,3 +20,7 @@ def read_from_json(filename):
     with open(filename, "r", encoding="utf-8") as f:
         data = json.load(f)
     return data
+
+def image_to_base64(image_path):
+    with open(image_path, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode('utf-8')

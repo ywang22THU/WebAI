@@ -16,7 +16,8 @@ class CacheHandler:
     def read_from_file(self):
         try:
             return read_from_json(self.file_name)
-        except:
+        except Exception as e:
+            print(e)
             return None
     
     def write_to_file(self):
@@ -44,3 +45,5 @@ class CacheHandler:
         file_locker.acquire()
         self.data[url][ele] = val
         file_locker.release()
+        
+cache_handler = CacheHandler('./cache/cache.json')
