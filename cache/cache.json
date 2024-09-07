@@ -1,0 +1,85 @@
+{
+    "https://www.bing.com": {
+        "searchbox": [
+            "id",
+            "sb_form_q"
+        ],
+        "results": [
+            "css selector",
+            "ol#b_results"
+        ],
+        "need_login": false
+    },
+    "https://www.baidu.com": {
+        "searchbox": [
+            "id",
+            "kw"
+        ],
+        "need_login": false,
+        "results": [
+            "id",
+            "content_left"
+        ]
+    },
+    "https://www.hao123.com/": {
+        "searchbox": [
+            "css selector",
+            ".textInput.input-hook"
+        ]
+    },
+    "https://developer.mozilla.org/zh-CN/docs/Learn": {
+        "searchbox": [
+            "id",
+            "top-nav-search-input"
+        ]
+    },
+    "https://developer.mozilla.org/zh-CN/": {
+        "searchbox": [
+            "css selector",
+            "#top-nav-search-input"
+        ]
+    },
+    "https://www.cs.tsinghua.edu.cn/": {
+        "searchbox": [
+            "id",
+            "showkeycode1017976"
+        ],
+        "results": [
+            "css selector",
+            "#ss_result"
+        ]
+    },
+    "https://www.taobao.com": {
+        "searchbox": [
+            "css selector",
+            "#q"
+        ],
+        "need_login": true,
+        "results": [
+            "css selector",
+            ".Content--contentInner--QVTcU0M"
+        ]
+    },
+    "https://oi-wiki.org/": {
+        "searchbox": [
+            "css selector",
+            ".md-search__input"
+        ],
+        "need_login": false,
+        "results": [
+            "css selector",
+            "ol.md-search-result__list[role=\"list\"]"
+        ]
+    },
+    "https://www.xiaohongshu.com/explore": {
+        "searchbox": [
+            "id",
+            "search-input"
+        ],
+        "need_login": true,
+        "results": [
+            "class name",
+            "feeds-container"
+        ]
+    }
+}

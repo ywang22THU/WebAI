@@ -1,13 +1,13 @@
 from openai import AzureOpenAI
 from handyllm import OpenAIClient
-from utils import image_to_base64
+from utils.utils import image_to_base64
 
 class LanguageParser:
     def __init__(self, prompt, key = None):
         self.messages = [{'role': 'system', 'content': prompt}]
         self.client = OpenAIClient(
             api_type='azure',
-            api_key="a4982552aedf4162b7582ce9c31aa977",
+            api_key= key or "a4982552aedf4162b7582ce9c31aa977",
             api_version="2023-12-01-preview",
             api_base = "https://pcg-east-us-2.openai.azure.com/"
         )
@@ -42,9 +42,9 @@ class PictureParser:
             azure_endpoint="https://pcg-sweden-central.openai.azure.com/",
         )
     
-    def parse(self, img_path, *args, **kwargs):
+    def parse(self, img, path_or_code, *args, **kwargs):
         url = kwargs.get("url", "")
-        img_url = f"data:image/jpeg;base64,{image_to_base64(img_path)}"
+        img_url = f"data:image/jpeg;base64,{image_to_base64(img) if path_or_code else img}"
         messages = [
             {
                 'role':'system',

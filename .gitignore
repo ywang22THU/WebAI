@@ -3,10 +3,7 @@
 __pycache__
 test.py
 *log.txt
-base.py
-shop.py
-parse.py
-*tmp*
-*.json
+temp/
+data/
 !locators.json
-gpt4v.py
+GPT*

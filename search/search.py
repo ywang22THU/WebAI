@@ -13,10 +13,11 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.webdriver import WebDriver
 from bs4 import BeautifulSoup
 from bs4.element import Tag
-from utils import *
+from algotithm import *
 from prompt import *
 from cache.cache import CacheHandler
-from parser import LanguageParser, PictureParser
+from utils.utils import save_to_json
+from utils.parser import LanguageParser, PictureParser
 from functools import reduce
 import time
 
@@ -26,11 +27,9 @@ intro_parse_lock = Lock()
 
 class SearchEngine: 
     """搜索引擎类"""
-    def __init__(self):
+    def __init__(self, driver: WebDriver | None = None):
         self.init_url = ''
-        options = webdriver.ChromeOptions()
-        options.add_argument('--headless')
-        self.driver: WebDriver = webdriver.Chrome(options=options) # 主浏览器
+        self.driver: WebDriver = driver or webdriver.Chrome() # 主浏览器
         self.cache_handler = CacheHandler("./cache/cache.json") # 定位器缓存管理器
         self.catagory = None # 当前搜索的类别
         # 元素解析器
@@ -142,18 +141,20 @@ class SearchEngine:
         return True if response == 'True' else False
     
     def classify_website(self, url, keyword):
-        def get_result():
-            classify_lock.acquire()
-            self.catagory = self.info_classifier.parse(img_path=f'./tmp/{keyword}.png', url=url)
-            classify_lock.release()
-        self.driver.save_screenshot(f'./tmp/{keyword}.png')
-        Thread(target=get_result).start()
-    
+        catagories: dict = self.cache_handler.get_data(url, 'catagories', {})
+        if keyword not in catagories:
+            img64 = self.driver.get_screenshot_as_base64()
+            self.catagory = self.info_classifier.parse(img=img64, path_or_code=False, url=url)
+        else:
+            self.catagory = catagories.get(keyword)
+
     def save_ancestor(self, url, tags: list[WebElement]):
         print(f"Saving ancestor for {self.init_url}")
         ancestors: list[WebElement] = []
         for i in range(len(tags)):
             ancestors.append(LCA(tags[i], tags[i-1]))
+        if len(ancestors) == 0:
+            return
         most_possible_ancestor = Counter(ancestors).most_common(1)[0][0]
         msa_html = most_possible_ancestor.get_attribute('outerHTML')
         most_possible_ancestor_locator = None
@@ -180,7 +181,6 @@ class SearchEngine:
             print(f"Failed to save wrapper of searching results list in {url}")
     
     def handle_possible_links(self, url, keyword) -> list:
-        # 将搜索结果的By保存在locator.json中，防止因为link过多导致API调用爆炸 TODO
         def get_relavent(keyword: str, title) -> bool:
             if title == '':
                 return False
