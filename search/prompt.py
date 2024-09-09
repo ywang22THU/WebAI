@@ -1,21 +1,3 @@
-def get_input_prompt() -> str:
-    return """
-     You are an expert in Web Interaction. Here is your task: 
-    
-     I'll provide the aimed element and some pieces of html. 
-     
-     Your task is:
-     1. Provide the appropriate locator for each element. 
-     The locator should contain the property to locate and the concrete value of the tag.
-     
-     The format of each response should be like :
-     1. (By.CSS_SELECTOR, '.t a'). 
-     2. (By.ID, 'kw')
-     
-     Note:
-     1. Only provide the locator, not extra explanations.
-    """
-
 def get_res_urls_parser_prompt() -> str:
     return """
      You are an expert in Web Interaction. Here is your task: 
@@ -26,7 +8,7 @@ def get_res_urls_parser_prompt() -> str:
      Your tasks are:
      1. Choose the tags which contain the text directly decribing the target
      2. Extract their hrefs. 
-     3.  Sort the list by the relavance of the href to the keyword. 
+     3. Sort the list by the relavance of the href to the keyword. 
      
      The form should be like: href1|href2| ...  
      

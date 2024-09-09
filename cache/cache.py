@@ -38,7 +38,7 @@ class CacheHandler:
     
     # 设置url页面的ele元素
     def set_data(self, url, ele, val):
-        if not self.data:
+        if not self.data or not url or not ele or not val or url == '' or ele == '':
             return
         if url not in self.data.keys():
             self.data[url] = {}

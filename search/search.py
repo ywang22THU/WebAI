@@ -8,17 +8,13 @@ from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.webdriver import WebDriver
 from bs4 import BeautifulSoup
 from bs4.element import Tag
-from search.algorithm import *
 from search.prompt import *
-from locate.locate import Locator
-from cache.cache import cache_handler
-from utils.utils import save_to_json
-from utils.parser import LanguageParser, PictureParser
+from locate import Locator
+from cache import cache_handler
+from utils import save_to_json, LanguageParser, PictureParser, LCA, LCS
 from functools import reduce
 import time
 
@@ -26,19 +22,18 @@ catagory_lock = Lock()
 
 class SearchEngine: 
     """搜索引擎类"""
-    def __init__(self, driver: WebDriver | None = None):
-        self.init_url = ''
+    def __init__(self, driver: WebDriver | None = None, url: str = ''):
         self.driver: WebDriver = driver or webdriver.Chrome() # 主浏览器
         self.cache_handler = cache_handler # 缓存管理器
         self.catagory = None # 当前搜索的类别
         self.locator = Locator(self.driver) # 元素定位器
         # 元素解析器
-        self.input_parser = LanguageParser(get_input_prompt())
         self.result_url_parser = LanguageParser(get_res_urls_parser_prompt())
         self.introduction_parser = LanguageParser(get_intro_parser_prompt())
         self.result_locator_parser = LanguageParser(get_result_locator_prompt())
         self.need_login_parser = PictureParser(get_need_login_prompt())
         self.info_classifier = PictureParser(get_website_category_prompt())
+        self.init_url = url
     
     # 获取对应网址的HTML
     def get_html(self, url):
@@ -123,7 +118,7 @@ class SearchEngine:
             return False
         urls = []
         should_lca = False
-        results = self.cache_handler.get_data(self.init_url, 'results')
+        results = self.cache_handler.get_data(self.init_url, 'search_results')
         if results is not None:
             urls_wrapper: WebElement = self.locator.try_locate(url, results, 'urls_wrapper')
             links = urls_wrapper.find_elements(by=By.TAG_NAME, value='a')
@@ -134,7 +129,7 @@ class SearchEngine:
         # 找到最合适的LCA存起来
         if should_lca:
             self.save_ancestor(url, relavent_links)
-        urls = list(map(lambda link: link.get_attribute('href'), relavent_links))
+        # urls = list(map(lambda link: link.get_attribute('href'), relavent_links))
         return urls
     
     # 在搜索后的界面中找到结果界面
@@ -155,12 +150,8 @@ class SearchEngine:
         intro_text = self.introduction_parser.parse(f"keyword: {keyword}\nhint: {hint}\ncontent: {raw}", clear_history=True)
         return intro_text 
     
-    # 查询操作
-    def search(self, url, keyword, submitted=False, should_judge_login=True):
-        if not submitted:
-            self.driver.get(url)
+    def type_in(self, url, keyword):
         search_box = self.locator.locate(self.init_url, url, "searchbox")
-        
         # 往输入框中输入关键词并提交
         search_box.clear()
         search_box.send_keys(keyword)
@@ -170,26 +161,29 @@ class SearchEngine:
         new_window_num = len(self.driver.window_handles)
         if new_window_num == pre_window_num + 1 :
             self.driver.switch_to.window(self.driver.window_handles[-1])
-        new_url = self.driver.current_url
-        
-        if should_judge_login:
-            need_login = self.cache_handler.get_data(self.init_url, "need_login")
-            should_write = False
-            if need_login is None:
-                should_write = True
-                need_login = self.need_login_or_not(new_url, keyword)
-            if need_login:
-                login_result = input("请登录您的账户，并且登录之后输入[y/n]表示您是否登陆成功\n如果您认为当前界面无需登录，请输入[q]\n")
-                if login_result == "n":
-                    raise RuntimeError(f"User failed to login in {url}")
-                if login_result == "q":
-                    need_login = False
-            if should_write:
-                self.cache_handler.set_data(self.init_url, "need_login", need_login)
-            return self.search(self.init_url, keyword, True, False)
-        
+    
+    def judge_login(self, url, keyword):
+        need_login = self.cache_handler.get_data(self.init_url, "need_login")
+        go_on = True
+        should_write = False
+        if need_login is None:
+            should_write = True
+            need_login = self.need_login_or_not(url, keyword)
+        if need_login:
+            login_result = input("请登录您的账户，并且登录之后输入[y/n]表示您是否登陆成功\n如果您认为当前界面无需登录，请输入[q]\n")
+            if login_result == "y":
+                go_on = False
+            if login_result == "n":
+                raise RuntimeError(f"User failed to login in {url}")
+            if login_result == "q":
+                need_login = False
+        if should_write:
+            self.cache_handler.set_data(self.init_url, "need_login", need_login)
+        return go_on
+    
+    def result_parse(self, url, keyword):
         self.classify_website(self.init_url, keyword)
-        result_urls = self.find_best_results_page(keyword, new_url)
+        result_urls = self.find_best_results_page(keyword, url)
         intro = ''
         for result_url in result_urls:
             print(f"Handling {result_url}")
@@ -198,6 +192,20 @@ class SearchEngine:
             source = f" 来源：{result_url}\n"
             intro += self.find_introduction(keyword, html, intro) + source
         introduction = self.introduction_parser.parse(f"keyword: {keyword}\ncontent: {intro}", clear_history=True)
+        return result_urls, introduction
+    
+    # 查询操作
+    def search(self, url, keyword):
+        self.driver.get(url)
+        need_judge_login = True
+        while True:
+            self.type_in(url, keyword)
+            new_url = self.driver.current_url
+            if not need_judge_login: break
+            go_on = self.judge_login(new_url, keyword)
+            if go_on: break
+            need_judge_login = False
+        result_urls, introduction = self.result_parse(new_url, keyword)
         return result_urls, introduction
     
     # 在很多url中搜索keyword
@@ -211,7 +219,7 @@ class SearchEngine:
                 self.init_url = url
                 ref_urls, introduction = self.search(url, keyword)
             except Exception as e:
-                ref_urls, introduction = [], f"We catch an error while searching: \n {e}"
+                raise e
             search_results[url] = {"introduction": introduction, "reference": ref_urls}
         print(f"Data saved to ./data/{keyword}.json")
         save_to_json(search_results, f"./data/{keyword}.json")

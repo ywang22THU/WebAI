@@ -4,7 +4,7 @@
             "id",
             "sb_form_q"
         ],
-        "results": [
+        "search_results": [
             "css selector",
             "ol#b_results"
         ],
@@ -16,7 +16,7 @@
             "kw"
         ],
         "need_login": false,
-        "results": [
+        "search_results": [
             "id",
             "content_left"
         ]
@@ -44,7 +44,7 @@
             "id",
             "showkeycode1017976"
         ],
-        "results": [
+        "search_results": [
             "css selector",
             "#ss_result"
         ]
@@ -55,7 +55,7 @@
             "#q"
         ],
         "need_login": true,
-        "results": [
+        "search_results": [
             "css selector",
             ".Content--contentInner--QVTcU0M"
         ]
@@ -66,7 +66,7 @@
             ".md-search__input"
         ],
         "need_login": false,
-        "results": [
+        "search_results": [
             "css selector",
             "ol.md-search-result__list[role=\"list\"]"
         ]
@@ -77,9 +77,15 @@
             "search-input"
         ],
         "need_login": true,
-        "results": [
+        "search_results": [
             "class name",
             "feeds-container"
+        ]
+    },
+    "https://www.bilibili.com": {
+        "searchbox": [
+            "css selector",
+            "input.nav-search-input"
         ]
     }
 }

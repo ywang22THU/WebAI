@@ -7,3 +7,4 @@ temp/
 data/
 !locators.json
 GPT*
+main.py

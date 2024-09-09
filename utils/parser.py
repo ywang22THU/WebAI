@@ -43,6 +43,7 @@ class PictureParser:
         )
     
     def parse(self, img, path_or_code, *args, **kwargs):
+        description = kwargs.get("description", "")
         url = kwargs.get("url", "")
         img_url = f"data:image/jpeg;base64,{image_to_base64(img) if path_or_code else img}"
         messages = [
@@ -60,6 +61,10 @@ class PictureParser:
                     {
                         "type": "image_url",
                         "image_url": {"url": img_url},
+                    },
+                    {
+                        "type": "text",
+                        "text": f"The extra information for your task is: {description}"
                     }
                 ]
             }

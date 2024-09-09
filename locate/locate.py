@@ -86,18 +86,19 @@ class Locator:
         aim = self.try_locate(url, locator, element)
         if aim:
             self.cache_handler.set_data(url, element, list(locator))
+            self.cache_handler.write_to_file()
             return aim
         else:
             return None
         
-    def locate(self, init_url, url, keyword):
+    def locate(self, data_url, url, keyword):
         aim = None
-        box_locator = self.cache_handler.get_data(init_url, keyword)
+        box_locator = self.cache_handler.get_data(data_url, keyword)
         # 先找缓存
         if box_locator:
             # 如果有缓存，则开始在其中找到对应的HTML元素
             print("Find pre-defined search box locator for this website...")
-            aim = self.try_locate(init_url, box_locator, keyword)
+            aim = self.try_locate(data_url, box_locator, keyword)
         # 如果没有缓存，则利用GPT来定位
         if not aim:
             print("Use llm to locate the search box...")
