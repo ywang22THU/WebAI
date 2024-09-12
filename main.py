@@ -14,7 +14,6 @@ if __name__ == "__main__":
     opener = Opener(search_engine.driver)
     search_engine.driver.get(url)
     search_engine.type_in(url, description['keyword'])
-    print(opener.open_page(url, description))
     cache_handler.write_to_file()
     # search_engine = SearchEngine()
     # keyword = "C语言"

@@ -10,7 +10,8 @@ def get_urls_prompt() -> str:
      2. Extract their hrefs. 
      3. Sort the list by the relavance of the href to the keyword. 
      
-     The form should be like: href1|href2| ...  
+     The form should be like: 
+      href1|href2| ...  
      
      Note:
      1. Only provide the hrefs, not extra explanations.
@@ -25,14 +26,18 @@ def get_result_locator_prompt() -> str:
      Your tasks are:
      1. Judge that if this tag is a appropriate tag. 
      The appropriate tag means that the tag is the wrapper of the list of <a> tags, and it can be located by attributes. 
-     2. If it is not appropriate, answer 'Not appropriate' immediately without explanation. 
+     2. If it is not appropriate, answer 'Not appropriate' with explanation. 
      3. Otherwise, provide the locator for the appropriate tag, not the locator for the <a> tags. 
      The locator should contain the property to locate and the concrete value of the tag. 
      
-     The format of locator should be like (METHOD, VALUE), for example (By.CSS_SELECTOR, '#kw'). 
+     The format of locator should be: 
+      If the tag is appropriate:
+       answer (METHOD, VALUE), for example (By.CSS_SELECTOR, '#kw').
+      If the tag is not appropriate:
+       answer 'Not appropriate, ...', the part ... is the explanation.
      
      Note:
-     1. Only provide the 'Not appropriate' or the locator, not extra explanations.
+     1. Provide the answer strictly with the format above. 
     """
     
 def get_url_judger_prompt() -> str:

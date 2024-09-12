@@ -60,7 +60,7 @@ class Opener:
             find_method = eval(parts[0])
             final_tag = parts[1].strip("'").strip("\"")
             results = [find_method, final_tag]
-            self.cache_handler.set_data(self.data_url, 'results', results)
+            self.cache_handler.set_data(self.data_url, 'seacher_results', results)
             print(f"Successfully save results list in {url} with {results}")
         except:
             print(f"Failed to save wrapper of searching results list in {url}")
@@ -102,8 +102,9 @@ class Opener:
             if next_url.startswith('/'):
                 return root + next_url
             return root + '/' + next_url
+        page_info = description.get('page_info', None)
         keyword = description.get('keyword', '')
-        all_hrefs = self.handle_possible_links(url, keyword)
+        all_hrefs = self.handle_possible_links(url, page_info or keyword)
         hrefs = self.url_getter.parse(f"url: {url}\ndescription: {description}\nlist: {all_hrefs}").split('|')
         res_urls = list(map(lambda href: url_formater(url, href), hrefs))
         return res_urls
@@ -112,7 +113,7 @@ class Opener:
     def open_page(self, url: str, description: dict):
         self.data_url = url
         urls = self.find_urls(url, description)
-        pattern = r"\[(Yes|No)\]\. (.*)"
+        pattern = r"\[(Yes)\]\. (.*)"
         for url in urls:
             self.driver.get(url)
             time.sleep(1)
