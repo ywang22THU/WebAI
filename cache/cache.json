@@ -1,14 +1,14 @@
 {
     "https://www.bing.com": {
-        "searchbox": [
-            "id",
-            "sb_form_q"
-        ],
         "search_results": [
             "css selector",
             "ol#b_results"
         ],
-        "need_login": false
+        "need_login": false,
+        "searchbox": [
+            "id",
+            "sb_form_q"
+        ]
     },
     "https://www.baidu.com": {
         "searchbox": [

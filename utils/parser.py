@@ -2,9 +2,12 @@ from openai import AzureOpenAI
 from handyllm import OpenAIClient
 from utils.utils import image_to_base64
 
+MAX_RECURSION = 5
+
 class LanguageParser:
     def __init__(self, prompt, key = None):
         self.messages = [{'role': 'system', 'content': prompt}]
+        self.recursion = 0
         self.client = OpenAIClient(
             api_type='azure',
             api_key= key or "a4982552aedf4162b7582ce9c31aa977",
@@ -16,21 +19,27 @@ class LanguageParser:
         if clear_history:
             self.messages = self.messages[:1]
         self.messages.append({'role':'user', 'content':message})
-        try:
-            response = self.client.chat(
-                engine="gpt-4-1106-preview",
-                messages = self.messages
-            ).call()
-            if "error" not in response:
-                usage = response["usage"]
-                prompt_tokens = usage["prompt_tokens"]
-                completion_tokens = usage["completion_tokens"]
-                print(f"Prompt tokens: {prompt_tokens}, Completion tokens: {completion_tokens}")
-            else:
-                return response["error"]["message"]
-            return response['choices'][0]['message']['content']
-        except Exception as e:
-            raise e
+        self.recursion = 0
+        errors = []
+        while self.recursion < MAX_RECURSION:
+            self.recursion += 1
+            try:
+                response = self.client.chat(
+                    engine="gpt-4-1106-preview",
+                    messages = self.messages
+                ).call()
+                if "error" not in response:
+                    usage = response["usage"]
+                    prompt_tokens = usage["prompt_tokens"]
+                    completion_tokens = usage["completion_tokens"]
+                    print(f"Prompt tokens: {prompt_tokens}, Completion tokens: {completion_tokens}")
+                else:
+                    return response["error"]["message"]
+                return response['choices'][0]['message']['content']
+            except Exception as e:
+                errors.append(str(e))
+                continue
+        return errors
 
 class PictureParser:
     def __init__(self, prompt, key = None):

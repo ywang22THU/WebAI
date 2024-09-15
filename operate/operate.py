@@ -1,27 +1,11 @@
 import re
-import os
-import shutil
-from threading import Thread, Lock
-from collections import Counter
-from urllib.parse import urlparse
-from selenium import webdriver
-from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.remote.webelement import WebElement
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.webdriver import WebDriver
 from bs4 import BeautifulSoup
 from bs4.element import Tag, NavigableString
-from search.prompt import *
-from locate import Locator
-from cache import cache_handler
-from utils import save_to_json, LanguageParser, PictureParser, LCA, LCS
-from functools import reduce
-import time
 
 MAX_HTML_LEN = 10000
 
 class HtmlOperator:
-    def __init__(self, url: str, bs: BeautifulSoup = None):
+    def __init__(self, url: str = None, bs: BeautifulSoup = None):
         self.bs = bs
         self.url = url
     

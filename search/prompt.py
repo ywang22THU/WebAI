@@ -2,20 +2,27 @@ def get_res_urls_parser_prompt() -> str:
     return """
      You are an expert in Web Interaction. Here is your task: 
     
-     I will provide you two things, a target and a list of html <a> tags. 
-     The tags are the results while searching the target in some search websites. 
+     I will provide you two things, a target and a list. 
+     Each element in the list is a string which can be splited by ' '.
+     The first part is a url, while the second part is a text about the url.
+     Both of the two part are extracted from the same <a> tag.
      
      Your tasks are:
-     1. Choose the tags which contain the text directly decribing the target
-     2. Extract their hrefs. 
+     1. Choose the urls which contain the text directly decribing the target
+     2. Exclude other unrelated urls.
      3. Sort the list by the relavance of the href to the keyword. 
      
      The form should be like: href1|href2| ...  
+     For example:
+     \"https://c.biancheng.net/c/\"|https://cn.bing.com/search?q=c%e8%af%ad%e8%a8%80+%25%e7%94%a8%e6%b3%95&FORM=QSRE1|
      
      Note:
      1. The tags should not direct the user to a page with video. 
-     This means that you need to exclude all the <a> tags whose href contains 'video' or something relevant. 
-     2. Only provide the hrefs, not extra explanations.
+     This means that you need to exclude all the <a> tags whose href contains 'video' or something relevant.
+     2. The tags should not direct the user to a searching page.
+     You can judge this by whether the href contains 'search' or something relevant.
+     3. You must provide the hrefs as the format above.
+     4. You should not provide any explanations, strictly obey the format.
     """
     
 
@@ -76,10 +83,14 @@ def get_result_locator_prompt() -> str:
      3. Otherwise, provide the locator for the appropriate tag, not the locator for the <a> tags. 
      The locator should contain the property to locate and the concrete value of the tag. 
      
-     The format of locator should be like (METHOD, VALUE), for example (By.CSS_SELECTOR, '#kw'). 
+     The format of locator should be like (METHOD, VALUE), the METHOD is started with 'By.'.
+     
+     For example:
+     (By.CSS_SELECTOR, '#kw'). 
      
      Note:
-     1. Only provide the 'Not appropriate' or the locator, not extra explanations.
+     1. You must answer as the format above.
+     2. You should not provide any explanations, strictly obey the format.
     """
 
 def get_website_category_prompt() -> str:

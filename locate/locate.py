@@ -1,19 +1,23 @@
+import re
 from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.webdriver import WebDriver
+from selenium.webdriver.common.by import By
 from bs4 import BeautifulSoup
-from utils import *
-from locate.prompt import get_locator_prompt
+from .prompt import get_locator_prompt, get_html_handle_prompt
 from cache import cache_handler
 from utils import LanguageParser
+from operate import HtmlOperator
 
 # 定位器，定位某一种元素的位置
 class Locator:
     def __init__(self, driver: WebDriver | None = None):
         self.driver = driver or webdriver.Chrome()
         self.cache_handler = cache_handler
+        self.html_parser = LanguageParser(get_html_handle_prompt())
         self.locator_parser = LanguageParser(get_locator_prompt())
+        self.html_operator = HtmlOperator()
         
     def get_html(self):
         return self.driver.page_source
@@ -48,14 +52,32 @@ class Locator:
             html = html.get_attribute("outerHTML")
         # 多次定位提高定位成功率
         for _ in range(5):
-            locator = self.element_locator_gpt(url, html, element)
+            locator = self.element_locate_llm(url, html, element) # self.element_locator_gpt(url, html, element)
             aim = self.test_and_add_locator(url, locator, element)
             if aim:
                 print(f"Successfully located the {element} by GPT.")
                 return aim
         if not aim:
             return None
+    
+    def element_locate_llm(self, url, html, element):
+        possible_tags = []
+        bs_slices = self.html_operator.slice_html(html)
+        for bs_slice in bs_slices:
+            msg = f"target: {element}\nhtml: {bs_slice.prettify(encoding="utf-8").decode()}"
+            possible_tags_slice = self.html_parser.parse(msg, True)
+            print(possible_tags_slice)
+            possible_tags.extend(eval(possible_tags_slice))
+        response: str = self.locator_parser.parse(f"element: {element}\nhtml:{possible_tags}")
+        pattern = r'\((.*), (.*)\)'
+        parts = re.match(pattern, response).groups()
+        find_method = eval(parts[0])
+        final_tag = parts[1].strip("'").strip("\"")
+        result_tuple = (find_method, final_tag)
+        print(f"Locator for {element} in {url} is {result_tuple}")
+        return result_tuple
         
+    
     # 利用GPT找到html中对应的element
     def element_locator_gpt(self, url, html, element):
         # 首先预处理html

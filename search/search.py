@@ -13,6 +13,7 @@ from bs4 import BeautifulSoup
 from bs4.element import Tag
 from search.prompt import *
 from locate import Locator
+from open import Opener
 from cache import cache_handler
 from utils import save_to_json, LanguageParser, PictureParser, LCA, LCS
 from functools import reduce
@@ -27,6 +28,7 @@ class SearchEngine:
         self.cache_handler = cache_handler # 缓存管理器
         self.catagory = None # 当前搜索的类别
         self.locator = Locator(self.driver) # 元素定位器
+        self.opener = Opener(self.driver) # 网页打开器
         # 元素解析器
         self.result_url_parser = LanguageParser(get_res_urls_parser_prompt())
         self.introduction_parser = LanguageParser(get_intro_parser_prompt())
@@ -59,7 +61,7 @@ class SearchEngine:
     
     def need_login_or_not(self, url, keyword):
         self.driver.save_screenshot(f'./tmp/{keyword}_login.png')
-        response = self.need_login_parser.parse(f'./tmp/{keyword}_login.png', url=url)
+        response = self.need_login_parser.parse(f'./tmp/{keyword}_login.png', path_or_code=True, url=url)
         return True if response == 'True' else False
     
     def classify_website(self, url, keyword):
@@ -74,71 +76,6 @@ class SearchEngine:
                 self.catagory = catagories.get(keyword)
             catagory_lock.release()
         Thread(target=_get_classification).start()
-
-    def save_ancestor(self, url, tags: list[WebElement]):
-        print(f"Saving ancestor for {self.init_url}")
-        ancestors: list[WebElement] = []
-        for i in range(len(tags)):
-            ancestors.append(LCA(tags[i], tags[i-1]))
-        if len(ancestors) == 0:
-            return
-        most_possible_ancestor = Counter(ancestors).most_common(1)[0][0]
-        msa_html = most_possible_ancestor.get_attribute('outerHTML')
-        most_possible_ancestor_locator = None
-        while True: 
-            most_possible_ancestor_locator = self.result_locator_parser.parse(f"target: {url}\ncontent: {msa_html}", clear_history=True)
-            if not most_possible_ancestor_locator.startswith('Not'):
-                break
-            try:
-                most_possible_ancestor = most_possible_ancestor.find_element(By.XPATH, '..')
-                msa_html = most_possible_ancestor.get_attribute('outerHTML')
-            except:
-                break
-        try:
-            trimmed_str = most_possible_ancestor_locator.strip("() ")
-            parts = [part.strip() for part in trimmed_str.split(",")]
-            if not parts[0].startswith('By.'):
-                return
-            find_method = eval(parts[0])
-            final_tag = parts[1].strip("'").strip("\"")
-            results = [find_method, final_tag]
-            self.cache_handler.set_data(self.init_url, 'results', results)
-            print(f"Successfully save results list in {url} with {results}")
-        except:
-            print(f"Failed to save wrapper of searching results list in {url}")
-    
-    def handle_possible_links(self, url, keyword) -> list:
-        def get_relavent(keyword: str, title) -> bool:
-            if title == '':
-                return False
-            words = keyword.split(' ')
-            lcs = reduce(lambda x, word: x + LCS(word, title), words, 0)
-            if lcs >= len(keyword) * 0.5:
-                return True
-            return False
-        urls = []
-        should_lca = False
-        results = self.cache_handler.get_data(self.init_url, 'search_results')
-        if results is not None:
-            urls_wrapper: WebElement = self.locator.try_locate(url, results, 'urls_wrapper')
-            links = urls_wrapper.find_elements(by=By.TAG_NAME, value='a')
-        else:
-            links = self.driver.find_elements(by=By.TAG_NAME, value='a')
-            should_lca = True
-        relavent_links = list(filter(lambda link: get_relavent(keyword, link.find_element(By.XPATH, '..').text), links))
-        # 找到最合适的LCA存起来
-        if should_lca:
-            self.save_ancestor(url, relavent_links)
-        # urls = list(map(lambda link: link.get_attribute('href'), relavent_links))
-        return urls
-    
-    # 在搜索后的界面中找到结果界面
-    def find_best_results_page(self, keyword: str, url: str) -> list:
-        root = urlparse(url).scheme + "://" + urlparse(url).netloc
-        all_hrefs = self.handle_possible_links(url, keyword)
-        hrefs = self.result_url_parser.parse(f"target: {keyword}\nlist: {all_hrefs}").split('|')
-        res_urls = list(map(lambda href: href if href.startswith('http') else root + '/' + href, hrefs))
-        return res_urls
     
     # 在url界面中找到简介
     def find_introduction(self, keyword, html, hint = ''):
@@ -182,8 +119,7 @@ class SearchEngine:
         return go_on
     
     def result_parse(self, url, keyword):
-        self.classify_website(self.init_url, keyword)
-        result_urls = self.find_best_results_page(keyword, url)
+        result_urls = self.opener.find_urls(url, {'keyword': keyword})
         intro = ''
         for result_url in result_urls:
             print(f"Handling {result_url}")
@@ -191,12 +127,13 @@ class SearchEngine:
             html = self.get_html(result_url)
             source = f" 来源：{result_url}\n"
             intro += self.find_introduction(keyword, html, intro) + source
-        introduction = self.introduction_parser.parse(f"keyword: {keyword}\ncontent: {intro}", clear_history=True)
+        introduction = self.introduction_parser.parse(f"keyword: {keyword}\ntype: {self.catagory}\ncontent: {intro}", clear_history=True)
         return result_urls, introduction
     
     # 查询操作
     def search(self, url, keyword):
         self.driver.get(url)
+        self.opener.data_url = url
         need_judge_login = True
         while True:
             self.type_in(url, keyword)
@@ -205,6 +142,7 @@ class SearchEngine:
             go_on = self.judge_login(new_url, keyword)
             if go_on: break
             need_judge_login = False
+        self.classify_website(self.init_url, keyword)
         result_urls, introduction = self.result_parse(new_url, keyword)
         return result_urls, introduction
     

@@ -33,7 +33,8 @@ class CacheHandler:
         try:
             return self.data[url][ele]
         except:
-            self.set_data(url, ele, default)
+            if not default:
+                self.set_data(url, ele, default)
             return default
     
     # 设置url页面的ele元素
@@ -47,3 +48,8 @@ class CacheHandler:
         file_locker.release()
         
 cache_handler = CacheHandler('./cache/cache.json')
+
+        # "searchbox": [
+        #     "id",
+        #     "sb_form_q"
+        # ],

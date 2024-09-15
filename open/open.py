@@ -1,21 +1,15 @@
 import re
-import os
-import shutil
-from threading import Thread, Lock
 from collections import Counter
 from urllib.parse import urlparse
 from selenium import webdriver
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.webdriver import WebDriver
-from bs4 import BeautifulSoup
-from bs4.element import Tag
-from open.prompt import *
+from .prompt import *
 from locate import Locator
 from utils import LCA, LCS
 from cache import cache_handler
-from utils import save_to_json, LanguageParser, PictureParser
+from utils import LanguageParser, PictureParser
 from functools import reduce
 import time
 
@@ -42,12 +36,13 @@ class Opener:
         most_possible_ancestor_locator = None
         while True: 
             try: 
-                most_possible_ancestor_locator = self.result_locator_parser.parse(f"target: {url}\ncontent: {msa_html}", clear_history=True)
+                most_possible_ancestor_locator = self.result_locator_parser.parse(f"tag: {msa_html}", clear_history=True)
             except:
                 break
-            if not most_possible_ancestor_locator.startswith('Not'):
-                break
             try:
+                if not most_possible_ancestor_locator.startswith('Not'):
+                    break
+                print(most_possible_ancestor_locator)
                 most_possible_ancestor = most_possible_ancestor.find_element(By.XPATH, '..')
                 msa_html = most_possible_ancestor.get_attribute('outerHTML')
             except:
@@ -56,7 +51,7 @@ class Opener:
             trimmed_str = most_possible_ancestor_locator.strip("() ")
             parts = [part.strip() for part in trimmed_str.split(",")]
             if not parts[0].startswith('By.'):
-                return
+                raise Exception
             find_method = eval(parts[0])
             final_tag = parts[1].strip("'").strip("\"")
             results = [find_method, final_tag]
@@ -87,12 +82,13 @@ class Opener:
         # 找到最合适的LCA存起来
         if should_lca:
             self.save_ancestor(url, relavent_links)
-        urls = list(map(lambda link: link.get_attribute('href') + link.text, relavent_links))
+        urls = list(map(lambda link: link.get_attribute('href') or '' + link.text, relavent_links))
         return urls
     
     def find_urls(self, url: str, description: dict):
         def url_formater(url: str, next_url: str) -> str:
-            root = urlparse(url).scheme + "://" + urlparse(url).netloc
+            if next_url == '':
+                return ''
             if next_url.startswith('http'):
                 return next_url
             if next_url.startswith('://'):
@@ -102,11 +98,12 @@ class Opener:
             if next_url.startswith('/'):
                 return root + next_url
             return root + '/' + next_url
-        page_info = description.get('page_info', None)
+        root = urlparse(url).scheme + "://" + urlparse(url).netloc
+        # page_info = description.get('page_info', None)
         keyword = description.get('keyword', '')
-        all_hrefs = self.handle_possible_links(url, page_info or keyword)
+        all_hrefs = self.handle_possible_links(url, keyword)
         hrefs = self.url_getter.parse(f"url: {url}\ndescription: {description}\nlist: {all_hrefs}").split('|')
-        res_urls = list(map(lambda href: url_formater(url, href), hrefs))
+        res_urls = list(filter(lambda url: url != '' ,list(map(lambda href: url_formater(root, href), hrefs))))
         return res_urls
     
     # data_url是保存的缓存的url，一般是根url
