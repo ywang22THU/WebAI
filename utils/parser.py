@@ -39,7 +39,7 @@ class LanguageParser:
             except Exception as e:
                 errors.append(str(e))
                 continue
-        return errors
+        return f"Failed to parse after {MAX_RECURSION} attempts: {errors}"
 
 class PictureParser:
     def __init__(self, prompt, key = None):

@@ -3,13 +3,15 @@ from bs4 import BeautifulSoup
 from bs4.element import Tag, NavigableString
 
 MAX_HTML_LEN = 10000
+BALCK_TAG = ['script', 'style']
+IMG_BLACK_TAG = ['script', 'style', 'img', 'svg', 'symbol']
 
 class HtmlOperator:
     def __init__(self, url: str = None, bs: BeautifulSoup = None):
         self.bs = bs
         self.url = url
     
-    def slice_html(self, html: str) -> list[BeautifulSoup]:
+    def slice_html(self, html: str, general_or_img: bool = True) -> list[BeautifulSoup]:
         html = re.sub(r'<!--(.*?)-->', '', html, flags=re.DOTALL)
         if html == '\n':
             return []
@@ -19,10 +21,12 @@ class HtmlOperator:
         root: Tag = soup.find(True)
         if not root:
             return None
+        black = BALCK_TAG if general_or_img else IMG_BLACK_TAG
         res = []
         part = ''
         for child in root.children:
-            if child.name == 'script' or child.name == 'style':
+            if child.name in black:
+                print(child.name)
                 child.decompose()
                 continue
             if isinstance(child, NavigableString):

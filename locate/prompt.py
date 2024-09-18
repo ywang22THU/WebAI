@@ -35,6 +35,6 @@ def get_html_handle_prompt():
     
     Notes:
     1. Only provide the tags with the format above, not extra explanations.
-    2. If the html is empty, return [].
-    3. Do not contain `````` in your response.
+    2. If the html is empty or not sufficient, return [].
+    3. Do not contain the symbol ` in your response.
    """

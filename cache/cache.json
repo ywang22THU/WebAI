@@ -87,5 +87,19 @@
             "css selector",
             "input.nav-search-input"
         ]
+    },
+    "https://kimi.moonshot.cn/": {
+        "login_button": [
+            "css selector",
+            "div.login____RTRY"
+        ],
+        "text_input_box": [
+            "css selector",
+            "div[data-testid=\"msh-chatinput-editor\"]"
+        ],
+        "send_text_button": [
+            "css selector",
+            "button[data-testid=\"msh-chatinput-send-button\"]"
+        ]
     }
 }

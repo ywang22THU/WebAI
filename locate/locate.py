@@ -4,7 +4,6 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.webdriver import WebDriver
 from selenium.webdriver.common.by import By
-from bs4 import BeautifulSoup
 from .prompt import get_locator_prompt, get_html_handle_prompt
 from cache import cache_handler
 from utils import LanguageParser
@@ -45,15 +44,18 @@ class Locator:
     
     # GPT添加元素定位器
     # 注意是直接返回的HTML元素
-    def handler_llm(self, url, html, element):
+    def handler_llm(self, url, html, element, need_cache):
         if html is None:
             html = self.get_html()
         if type(html) is not str:
             html = html.get_attribute("outerHTML")
         # 多次定位提高定位成功率
         for _ in range(5):
-            locator = self.element_locate_llm(url, html, element) # self.element_locator_gpt(url, html, element)
-            aim = self.test_and_add_locator(url, locator, element)
+            locator = self.element_locate_llm(url, html, element)
+            if need_cache:
+                aim = self.test_and_add_locator(url, locator, element)
+            else:
+                aim = self.try_locate(url, locator, element)
             if aim:
                 print(f"Successfully located the {element} by GPT.")
                 return aim
@@ -63,46 +65,23 @@ class Locator:
     def element_locate_llm(self, url, html, element):
         possible_tags = []
         bs_slices = self.html_operator.slice_html(html)
+        list_parttern = r'\[(.*?)\]'
         for bs_slice in bs_slices:
             msg = f"target: {element}\nhtml: {bs_slice.prettify(encoding="utf-8").decode()}"
             possible_tags_slice = self.html_parser.parse(msg, True)
-            print(possible_tags_slice)
+            print(type(list_parttern), type(possible_tags_slice))
+            possible_tags_slice = f"[{re.findall(list_parttern, possible_tags_slice)[0]}]"
             possible_tags.extend(eval(possible_tags_slice))
+        print(f"element: {element}\nhtml:{possible_tags}")
         response: str = self.locator_parser.parse(f"element: {element}\nhtml:{possible_tags}")
-        pattern = r'\((.*), (.*)\)'
-        parts = re.match(pattern, response).groups()
+        part_pattern = r'\((.*), (.*)\)'
+        parts = re.match(part_pattern, response).groups()
         find_method = eval(parts[0])
         final_tag = parts[1].strip("'").strip("\"")
         result_tuple = (find_method, final_tag)
         print(f"Locator for {element} in {url} is {result_tuple}")
         return result_tuple
         
-    
-    # 利用GPT找到html中对应的element
-    def element_locator_gpt(self, url, html, element):
-        # 首先预处理html
-        soup = BeautifulSoup(html, 'html.parser')
-        # 去除所有的脚本
-        for script in soup.find_all('script'):
-            script.decompose()
-        # 找到有可能相关的元素 TODO
-        forms = soup.find_all('form')
-        inputs = soup.find_all('input')
-        buttons = soup.find_all('button')
-        possible_elements = forms + inputs + buttons
-        choices = str(possible_elements)
-        # 利用GPT找到尽可能符合要求的元素
-        # 根据初始化时的规定，格式应该为(By.CSS_SELECTOR, '.t a')
-        response: str = self.locator_parser.parse(f"element: {element}\nhtml:{choices}")
-        # 将结果进行处理
-        trimmed_str = response.strip("() ")
-        parts = [part.strip() for part in trimmed_str.split(",")]
-        find_method = eval(parts[0])
-        final_tag = parts[1].strip("'").strip("\"")
-        result_tuple = (find_method, final_tag)
-        print(f"Locator for {element} in {url} is {result_tuple}")
-        return result_tuple
-    
     # 尝试定位
     def test_and_add_locator(self, url, locator, element):
         aim = self.try_locate(url, locator, element)
@@ -113,20 +92,23 @@ class Locator:
         else:
             return None
         
-    def locate(self, data_url, url, keyword):
+    def locate(self, data_url, url, keyword, need_cache=True):
         aim = None
-        box_locator = self.cache_handler.get_data(data_url, keyword)
+        if need_cache:
+            box_locator = self.cache_handler.get_data(data_url, keyword)
+        else:
+            box_locator = None
         # 先找缓存
         if box_locator:
             # 如果有缓存，则开始在其中找到对应的HTML元素
-            print("Find pre-defined search box locator for this website...")
+            print(f"Find pre-defined {keyword} locator for this website...")
             aim = self.try_locate(data_url, box_locator, keyword)
         # 如果没有缓存，则利用GPT来定位
         if not aim:
-            print("Use llm to locate the search box...")
-            aim = self.handler_llm(url, None, element=keyword)
+            print(f"Use llm to locate the {keyword}...")
+            aim = self.handler_llm(url, None, element=keyword, need_cache=need_cache)
         # GPT定位不成功则进行人工定位
         if not aim:
-            print("Mannually locate the search box...")
+            print(f"Mannually locate the {keyword}...")
             aim = self.handler_mannul(url, element=keyword)
         return aim
