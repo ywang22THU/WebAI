@@ -1,6 +1,6 @@
 {
     "https://www.bing.com": {
-        "search_results": [
+        "urls_wrapper": [
             "css selector",
             "ol#b_results"
         ],
@@ -8,6 +8,10 @@
         "searchbox": [
             "id",
             "sb_form_q"
+        ],
+        "search_button": [
+            "id",
+            "search_icon"
         ]
     },
     "https://www.baidu.com": {
@@ -16,12 +20,12 @@
             "kw"
         ],
         "need_login": false,
-        "search_results": [
+        "urls_wrapper": [
             "id",
             "content_left"
         ]
     },
-    "https://www.hao123.com/": {
+    "https://www.hao123.com": {
         "searchbox": [
             "css selector",
             ".textInput.input-hook"
@@ -33,18 +37,18 @@
             "top-nav-search-input"
         ]
     },
-    "https://developer.mozilla.org/zh-CN/": {
+    "https://developer.mozilla.org/zh-CN": {
         "searchbox": [
             "css selector",
             "#top-nav-search-input"
         ]
     },
-    "https://www.cs.tsinghua.edu.cn/": {
+    "https://www.cs.tsinghua.edu.cn": {
         "searchbox": [
             "id",
             "showkeycode1017976"
         ],
-        "search_results": [
+        "urls_wrapper": [
             "css selector",
             "#ss_result"
         ]
@@ -55,18 +59,18 @@
             "#q"
         ],
         "need_login": true,
-        "search_results": [
+        "urls_wrapper": [
             "css selector",
             ".Content--contentInner--QVTcU0M"
         ]
     },
-    "https://oi-wiki.org/": {
+    "https://oi-wiki.org": {
         "searchbox": [
             "css selector",
             ".md-search__input"
         ],
         "need_login": false,
-        "search_results": [
+        "urls_wrapper": [
             "css selector",
             "ol.md-search-result__list[role=\"list\"]"
         ]
@@ -77,7 +81,7 @@
             "search-input"
         ],
         "need_login": true,
-        "search_results": [
+        "urls_wrapper": [
             "class name",
             "feeds-container"
         ]
@@ -88,7 +92,7 @@
             "input.nav-search-input"
         ]
     },
-    "https://kimi.moonshot.cn/": {
+    "https://kimi.moonshot.cn": {
         "login_button": [
             "css selector",
             "div.login____RTRY"

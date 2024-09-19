@@ -71,9 +71,9 @@ class Opener:
             return False
         urls = []
         should_lca = False
-        results = self.cache_handler.get_data(self.data_url, keyword)
-        if results is not None:
-            urls_wrapper: WebElement = self.locator.try_locate(url, results, 'urls_wrapper')
+        wrapper_tag = self.cache_handler.get_data(self.data_url, 'urls_wrapper')
+        if wrapper_tag is not None:
+            urls_wrapper: WebElement = self.locator.try_locate(self.data_url, wrapper_tag, 'urls_wrapper')
             links = urls_wrapper.find_elements(by=By.TAG_NAME, value='a')
         else:
             links = self.driver.find_elements(by=By.TAG_NAME, value='a')

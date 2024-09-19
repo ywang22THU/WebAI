@@ -26,7 +26,6 @@ class HtmlOperator:
         part = ''
         for child in root.children:
             if child.name in black:
-                print(child.name)
                 child.decompose()
                 continue
             if isinstance(child, NavigableString):

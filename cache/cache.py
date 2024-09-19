@@ -29,7 +29,7 @@ class CacheHandler:
             return None
     
     # 拿到url页面的ele元素
-    def get_data(self, url, ele, default=None) -> list:
+    def get_data(self, url, ele, default=None):
         try:
             return self.data[url][ele]
         except:

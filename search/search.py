@@ -15,7 +15,7 @@ from search.prompt import *
 from locate import Locator
 from open import Opener
 from cache import cache_handler
-from utils import save_to_json, LanguageParser, PictureParser, LCA, LCS
+from utils import save_to_json, LanguageParser, PictureParser, save_to_html
 from functools import reduce
 import time
 
@@ -29,6 +29,8 @@ class SearchEngine:
         self.catagory = None # 当前搜索的类别
         self.locator = Locator(self.driver) # 元素定位器
         self.opener = Opener(self.driver) # 网页打开器
+        self.text_input_box = None
+        self.send_button = None
         # 元素解析器
         self.result_url_parser = LanguageParser(get_res_urls_parser_prompt())
         self.introduction_parser = LanguageParser(get_intro_parser_prompt())
@@ -60,8 +62,11 @@ class SearchEngine:
         self.driver.switch_to.window(new_tab)
     
     def need_login_or_not(self, url, keyword):
+        if not os.path.exists(f'./tmp'):
+            os.mkdir(f'./tmp')
         self.driver.save_screenshot(f'./tmp/{keyword}_login.png')
         response = self.need_login_parser.parse(f'./tmp/{keyword}_login.png', path_or_code=True, url=url)
+        os.remove(f'./tmp/{keyword}_login.png')
         return True if response == 'True' else False
     
     def classify_website(self, url, keyword):
@@ -88,15 +93,21 @@ class SearchEngine:
         return intro_text 
     
     def type_in(self, url, keyword):
-        search_box = self.locator.locate(self.init_url, url, "searchbox")
+        if not self.text_input_box:
+            self.text_input_box = self.locator.locate(self.init_url, url, "searchbox")
+        if not self.send_button:
+            self.send_button = self.locator.locate(self.init_url, url, "search_button")
         # 往输入框中输入关键词并提交
-        search_box.clear()
-        search_box.send_keys(keyword)
+        self.text_input_box.send_keys(Keys.CONTROL, 'a')
+        self.text_input_box.send_keys(Keys.DELETE)
+        self.text_input_box.send_keys(keyword)
         pre_window_num = len(self.driver.window_handles)
-        search_box.send_keys(Keys.ENTER) # submit()模拟按下回车键
+        self.send_button.click()
+        # TODO 这里需要判断一次enter够不够
+        # search_box.send_keys(Keys)
         time.sleep(1.5)
         new_window_num = len(self.driver.window_handles)
-        if new_window_num == pre_window_num + 1 :
+        if new_window_num > pre_window_num :
             self.driver.switch_to.window(self.driver.window_handles[-1])
     
     def judge_login(self, url, keyword):
@@ -163,3 +174,26 @@ class SearchEngine:
         save_to_json(search_results, f"./data/{keyword}.json")
         self.close()
         shutil.rmtree('./tmp')
+        
+    def html_generate(self, urls, keywords):
+        if not os.path.exists('./htmls'):
+            os.mkdir('./htmls')
+        for url in urls:
+            self.init_url = url.strip('/')
+            self.open_new_tab()
+            self.driver.get(url)
+            self.opener.data_url = url
+            need_judge_login = True
+            url_info = urlparse(url).netloc
+            save_to_html(self.driver.page_source, f"./htmls/{url_info}.html")
+            for keyword in keywords:
+                self.driver.switch_to.window(self.driver.window_handles[0])
+                print(f"Generating html for {url} with keyword {keyword}")
+                while True:
+                    self.type_in(url, keyword)
+                    new_url = self.driver.current_url
+                    if not need_judge_login: break
+                    go_on = self.judge_login(new_url, keyword)
+                    if go_on: break
+                    need_judge_login = False
+                save_to_html(self.driver.page_source, f"./htmls/{url_info}_{keyword}.html")

@@ -8,3 +8,5 @@ data/
 !locators.json
 GPT*
 main.py
+TODO*
+*.rar

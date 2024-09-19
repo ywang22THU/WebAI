@@ -69,7 +69,6 @@ class Locator:
         for bs_slice in bs_slices:
             msg = f"target: {element}\nhtml: {bs_slice.prettify(encoding="utf-8").decode()}"
             possible_tags_slice = self.html_parser.parse(msg, True)
-            print(type(list_parttern), type(possible_tags_slice))
             possible_tags_slice = f"[{re.findall(list_parttern, possible_tags_slice)[0]}]"
             possible_tags.extend(eval(possible_tags_slice))
         print(f"element: {element}\nhtml:{possible_tags}")
@@ -101,7 +100,7 @@ class Locator:
         # 先找缓存
         if box_locator:
             # 如果有缓存，则开始在其中找到对应的HTML元素
-            print(f"Find pre-defined {keyword} locator for this website...")
+            print(f"Find pre-defined {keyword} locator for this website {data_url}...")
             aim = self.try_locate(data_url, box_locator, keyword)
         # 如果没有缓存，则利用GPT来定位
         if not aim:
