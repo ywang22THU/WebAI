@@ -1,6 +1,7 @@
 from openai import AzureOpenAI
 from handyllm import OpenAIClient
 from utils.utils import image_to_base64
+from .config import *
 
 MAX_RECURSION = 5
 
@@ -10,7 +11,7 @@ class LanguageParser:
         self.recursion = 0
         self.client = OpenAIClient(
             api_type='azure',
-            api_key= key or "a4982552aedf4162b7582ce9c31aa977",
+            api_key= key or LanguageParserAPIKey,
             api_version="2023-12-01-preview",
             api_base = "https://pcg-east-us-2.openai.azure.com/"
         )
@@ -45,7 +46,7 @@ class PictureParser:
     def __init__(self, prompt, key = None):
         self.prompt = prompt
         self.client = AzureOpenAI(
-            api_key= key or "ccc220011aa14b3691ae7969db27aef2",
+            api_key= key or PictureParserAPIKey,
             api_version="2024-02-01",
             # azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
             azure_endpoint="https://pcg-sweden-central.openai.azure.com/",

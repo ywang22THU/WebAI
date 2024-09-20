@@ -52,7 +52,8 @@ class Chater:
             except:
                 self.text_input_box = self.locator.locate(self.data_url, url, "text_input_box")
                 self.send_button = self.locator.locate(self.data_url, url, "send_text_button")
-                
+    
+    # 判断模型的回复是否完成  
     def judge_stable(self):
         if os.path.exists(f'./tmp/last_time.png'):
             os.remove(f'./tmp/last_time.png')
@@ -68,15 +69,32 @@ class Chater:
         # print(BeautifulSoup(html, 'html.parser').text)
         soups = self.operator.slice_html(html, False)
         resp_parttern = r"Yes\. (.*)"
+        possible_replies = []
         for soup in tqdm(soups):
             msg = f"User's word: {text}\nText: {soup}\nHistory: {str(self.dialog_history)}"
             resp = self.response_parser.parse(msg, True)
             try:
-                return re.match(resp_parttern, resp).groups()[-1]
+                tags = re.match(resp_parttern, resp).groups()[-1].split('|')
+                for tag in tags:
+                    possible_replies.append(BeautifulSoup(tag, 'html.parser').text)
             except:
                 print(f"模型回复了：{resp}")
         return "模型没有回复"
-        
+    
+    def one_round(self):
+        text = input("请输入您要发送的消息：")
+        if text == "q":
+            return False
+        self.type_in(text)
+        self.dialog_history.append({"user": text})
+        self.dialog_history = self.dialog_history[-10:]
+        while not self.judge_stable():
+            print("等待回复")
+            time.sleep(1)
+        response = self.get_response(text)
+        print(f"模型的回复是：{response}")
+        return True
+    
     # 聊天
     def chat(self, url):
         if not os.path.exists(f'./tmp'):
@@ -84,11 +102,17 @@ class Chater:
         self.data_url = url
         self.driver.get(url)
         self.login()
-        while True:
-            text = input("请输入您要发送的消息：")
-            self.type_in(text)
-            while not self.judge_stable():
-                print("等待回复")
-                time.sleep(1)
-            response = self.get_response(text)
-            print(f"模型的回复是：{response}")    
+        # 第一次输入之后，需要判断agent是否有提前提示词
+        text = input("请输入您要发送的消息：")
+        if text == "q":
+            return
+        self.type_in(text)
+        # TODO 判断是否已有提示词
+        while not self.judge_stable():
+            print("等待回复")
+            time.sleep(1)
+        response = self.get_response(text)
+        print(f"模型的回复是：{response}")
+        # 之后开始循环问答
+        while self.one_round():
+            pass

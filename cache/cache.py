@@ -48,8 +48,3 @@ class CacheHandler:
         file_locker.release()
         
 cache_handler = CacheHandler('./cache/cache.json')
-
-        # "searchbox": [
-        #     "id",
-        #     "sb_form_q"
-        # ],
