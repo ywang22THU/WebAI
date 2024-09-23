@@ -2,6 +2,9 @@ from openai import AzureOpenAI
 from handyllm import OpenAIClient
 from utils.utils import image_to_base64
 from .config import *
+import json
+import time
+import re
 
 MAX_RECURSION = 5
 
@@ -38,6 +41,13 @@ class LanguageParser:
                     return response["error"]["message"]
                 return response['choices'][0]['message']['content']
             except Exception as e:
+                err: dict = json.loads(str(e).split("'error':")[-1].strip().removesuffix('}').replace("'", '"'))
+                err_msg = err.get('message')
+                if err.get('code') == '429':
+                    pattern = r"(.*) after (.*) second(.*)"
+                    retry = int(re.match(pattern, err_msg).group(2))
+                    print(f"Rate limit exceeded, retrying after {retry} second(s)")
+                    time.sleep(retry)
                 errors.append(str(e))
                 continue
         return f"Failed to parse after {MAX_RECURSION} attempts: {errors}"

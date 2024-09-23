@@ -34,6 +34,7 @@ def get_response_prompt():
     modification is strictly prohibited.
     3. You must return the tag in the html if the answer is in the text., do not return anything else.
     4. Do not return any answer in the history dialog.
+    5. Even if the answer is very long, you should not omit any of the contents. You cannot use '...' to represent the omitted contents.
     """
     
 def get_first_sentence_prompt():
@@ -64,9 +65,23 @@ def get_judge_response_prompt():
     return """
     You are an expert in Web Interaction. Here is your task:
     
+    The background information is:
+    The user is chating with a llm agent on a website. And the user say something to the agent, waiting for
+    the agent's response.
+    
     I will give you a sentence, a response list and a history dialog.
     
-    The sentence is said by user this round.
-    The html is sliced from the page source of the current website.
+    The sentence is said by user in this round.
+    The response list is some possible texts that may be the reply of the user's sentence.
     The history dialog is the previous dialog between user and agent, and it may be None.
+    
+    Your task is:
+    1. Choose one response from the response list that is most likely to be the reply of the user's sentence.
+    
+    The format of your response should be:
+    The response you choose from the response list.
+    
+    Note:
+    1. Response should strictly obey the format, do not contain '[' or ']' or anything similar in it.
+    2. You should just extract contents from the list, any modification on the response is strictly prohibited.
     """

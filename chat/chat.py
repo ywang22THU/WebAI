@@ -2,13 +2,15 @@ from locate import Locator
 from operate import HtmlOperator
 from cache import cache_handler
 from selenium import webdriver
-from utils import LanguageParser, image_to_base64
-from .prompt import get_response_prompt
+from utils import LanguageParser, PictureParser
+from .prompt import get_response_prompt, get_first_sentence_prompt, get_judge_response_prompt
 import re
 import time
 import os
-from tqdm import tqdm
+import shutil
+from typing import Literal
 from bs4 import BeautifulSoup
+from utils import save_to_html
 
 class Chater:
     def __init__(self):
@@ -17,6 +19,8 @@ class Chater:
         self.locator = Locator(self.driver)
         self.operator = HtmlOperator(self.driver)
         self.response_parser = LanguageParser(get_response_prompt())
+        self.first_sentence_parser = PictureParser(get_first_sentence_prompt())
+        self.reply_parser = LanguageParser(get_judge_response_prompt())
         self.cache_handler = cache_handler
         self.login_button = None
         self.text_input_box = None
@@ -55,10 +59,7 @@ class Chater:
     
     # 判断模型的回复是否完成  
     def judge_stable(self):
-        if os.path.exists(f'./tmp/last_time.png'):
-            os.remove(f'./tmp/last_time.png')
-        self.driver.save_screenshot('./tmp/last_time.png')
-        last_time_base = image_to_base64('./tmp/last_time.png')
+        last_time_base = self.driver.get_screenshot_as_base64()
         time.sleep(0.001)
         now_base = self.driver.get_screenshot_as_base64()
         return last_time_base == now_base
@@ -66,32 +67,48 @@ class Chater:
     # 处理回复
     def get_response(self, text):
         html = self.driver.page_source
-        # print(BeautifulSoup(html, 'html.parser').text)
-        soups = self.operator.slice_html(html, False)
-        resp_parttern = r"Yes\. (.*)"
+        self.driver.save_screenshot("./tmp/screenshot.png")
+        soups = self.operator.slice_html(html)
+        resp_parttern = re.compile(r"Yes\. (.*)", re.DOTALL)
         possible_replies = []
-        for soup in tqdm(soups):
-            msg = f"User's word: {text}\nText: {soup}\nHistory: {str(self.dialog_history)}"
+        for soup in soups:
+            if len(re.sub(r"\s+", "", soup.text)) < 10:
+                continue
+            msg = f"User's word: {text}\nHtml slice: {soup.prettify()}\nHistory: {str(self.dialog_history)}"
             resp = self.response_parser.parse(msg, True)
+            print(f"模型的回复是：{resp}")
             try:
                 tags = re.match(resp_parttern, resp).groups()[-1].split('|')
                 for tag in tags:
-                    possible_replies.append(BeautifulSoup(tag, 'html.parser').text)
+                    raw = BeautifulSoup(tag, 'html.parser').text
+                    possible_replies.append(re.sub(r"\s+", " ", raw))
             except:
-                print(f"模型回复了：{resp}")
-        return "模型没有回复"
+                pass
+        return possible_replies
     
-    def one_round(self):
+    def append_history(self, text, who: Literal["user", "agent"]):
+        self.dialog_history.append(f"{who}: {text}")
+        self.dialog_history = self.dialog_history[-20:]
+    
+    def one_round(self, first = False):
         text = input("请输入您要发送的消息：")
         if text == "q":
             return False
         self.type_in(text)
-        self.dialog_history.append({"user": text})
-        self.dialog_history = self.dialog_history[-10:]
+        self.append_history(text, "user")
         while not self.judge_stable():
             print("等待回复")
             time.sleep(1)
-        response = self.get_response(text)
+        if first:
+            self.driver.save_screenshot("./tmp/first.png")
+            first_sentence = self.first_sentence_parser.parse(self.driver.get_screenshot_as_base64(), False)
+            print(f"模型的提示词是：{first_sentence}")
+            if first_sentence != "No":
+                self.append_history(first_sentence, "agent")
+        possible_replies = self.get_response(text)
+        msg = f"User's word: {text}\nPossible replies: {possible_replies}\nHistory: {self.dialog_history}"
+        response = self.reply_parser.parse(msg, True)
+        self.append_history(response, "agent")
         print(f"模型的回复是：{response}")
         return True
     
@@ -99,20 +116,11 @@ class Chater:
     def chat(self, url):
         if not os.path.exists(f'./tmp'):
             os.mkdir(f'./tmp')
-        self.data_url = url
+        self.data_url = url.strip('/')
         self.driver.get(url)
         self.login()
-        # 第一次输入之后，需要判断agent是否有提前提示词
-        text = input("请输入您要发送的消息：")
-        if text == "q":
-            return
-        self.type_in(text)
-        # TODO 判断是否已有提示词
-        while not self.judge_stable():
-            print("等待回复")
-            time.sleep(1)
-        response = self.get_response(text)
-        print(f"模型的回复是：{response}")
+        self.one_round(first=True)
         # 之后开始循环问答
         while self.one_round():
             pass
+        shutil.rmtree("./tmp")

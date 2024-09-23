@@ -32,13 +32,15 @@ class HtmlOperator:
                 part += str(child)
                 continue
             if len(child.prettify()) > MAX_HTML_LEN:
-                res.extend(self.slice_html(part))
-                res.extend(self.slice_html(child.prettify()))
+                res.extend(self.slice_html(part, general_or_img))
+                res.extend(self.slice_html(child.prettify(), general_or_img))
                 part = ''
             elif len(part + child.prettify()) > MAX_HTML_LEN:
-                res.extend(self.slice_html(part))
+                res.extend(self.slice_html(part, general_or_img))
                 part = child.prettify()
             else:
                 part += child.prettify()
+        if part != '':
+            res.extend(self.slice_html(part, general_or_img))
         return res
             
