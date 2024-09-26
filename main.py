@@ -3,6 +3,7 @@ from open import Opener
 from cache import cache_handler
 
 keywords = [
+    "清华大学",
     "哈希表",
     "python",
     "邱勇",
@@ -25,6 +26,4 @@ urls = [
 if __name__ == "__main__":
     
     search_engine = SearchEngine()
-    # search_engine.html_generate(urls, keywords)
-    # print("html_generate finished")
     search_engine.run(urls, keywords[0])

@@ -30,11 +30,13 @@ def get_response_prompt():
     
     Note:
     1. Response should strictly obey the format, do not contain '[' or ']' in it.
-    2. If the answer is in the text, you should just extract the tag which contains the answer,
+    2. Even if the answer is very long, just return the whole tag.
+    3. You should not omit any of the contents. You cannot use '...' to represent the omitted contents.
+    4. If the answer is in the text, you should just extract the tag which contains the answer,
     modification is strictly prohibited.
-    3. You must return the tag in the html if the answer is in the text., do not return anything else.
-    4. Do not return any answer in the history dialog.
-    5. Even if the answer is very long, you should not omit any of the contents. You cannot use '...' to represent the omitted contents.
+    5. If the user ask the agent to code, carefully extract the code block from the html. Do not omit any of the contents.
+    5. You must return the tag in the html if the answer is in the text., do not return anything else.
+    6. Do not return any answer in the history dialog.
     """
     
 def get_first_sentence_prompt():

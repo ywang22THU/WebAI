@@ -10,7 +10,8 @@ import os
 import shutil
 from typing import Literal
 from bs4 import BeautifulSoup
-from utils import save_to_html
+from threading import Timer
+from concurrent.futures import ThreadPoolExecutor
 
 class Chater:
     def __init__(self):
@@ -26,6 +27,7 @@ class Chater:
         self.text_input_box = None
         self.send_button = None
         self.dialog_history = []
+        self.full_history = []
     
     # 登录
     def login(self):
@@ -56,6 +58,13 @@ class Chater:
             except:
                 self.text_input_box = self.locator.locate(self.data_url, url, "text_input_box")
                 self.send_button = self.locator.locate(self.data_url, url, "send_text_button")
+                
+    def judge_first_sentence(self):
+        self.driver.save_screenshot("./tmp/first.png")
+        first_sentence = self.first_sentence_parser.parse(self.driver.get_screenshot_as_base64(), False)
+        print(f"模型的提示词是：{first_sentence}")
+        if first_sentence != "No":
+            self.append_history(first_sentence, "agent")
     
     # 判断模型的回复是否完成  
     def judge_stable(self):
@@ -66,27 +75,32 @@ class Chater:
     
     # 处理回复
     def get_response(self, text):
+        def task(soup: BeautifulSoup):
+            if len(re.sub(r"\s+", "", soup.text)) < 10:
+                return ""
+            msg = f"User's word: {text}\nHtml slice: {soup.prettify()}\nHistory: {str(self.dialog_history)}"
+            resp = self.response_parser.parse(msg, True)
+            try:
+                tags = re.match(resp_parttern, resp).groups()[-1].split('|')
+                raws = list(map(lambda tag: BeautifulSoup(tag, 'html.parser').text, tags))
+                return list(map(lambda raw: re.sub(r"\s+", " ", raw), raws))
+            except:
+                return ""
         html = self.driver.page_source
         self.driver.save_screenshot("./tmp/screenshot.png")
         soups = self.operator.slice_html(html)
         resp_parttern = re.compile(r"Yes\. (.*)", re.DOTALL)
         possible_replies = []
-        for soup in soups:
-            if len(re.sub(r"\s+", "", soup.text)) < 10:
-                continue
-            msg = f"User's word: {text}\nHtml slice: {soup.prettify()}\nHistory: {str(self.dialog_history)}"
-            resp = self.response_parser.parse(msg, True)
-            print(f"模型的回复是：{resp}")
-            try:
-                tags = re.match(resp_parttern, resp).groups()[-1].split('|')
-                for tag in tags:
-                    raw = BeautifulSoup(tag, 'html.parser').text
-                    possible_replies.append(re.sub(r"\s+", " ", raw))
-            except:
-                pass
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            results = executor.map(task, soups)
+            for result in results:
+                if len(result) > 0:
+                    possible_replies.extend(result)
+        print(possible_replies)
         return possible_replies
     
     def append_history(self, text, who: Literal["user", "agent"]):
+        self.full_history.append(f"{who}: {text}")
         self.dialog_history.append(f"{who}: {text}")
         self.dialog_history = self.dialog_history[-20:]
     
@@ -95,19 +109,16 @@ class Chater:
         if text == "q":
             return False
         self.type_in(text)
-        self.append_history(text, "user")
+        time.sleep(1)
+        if first:
+            Timer(0.1, self.judge_first_sentence).start()
         while not self.judge_stable():
             print("等待回复")
             time.sleep(1)
-        if first:
-            self.driver.save_screenshot("./tmp/first.png")
-            first_sentence = self.first_sentence_parser.parse(self.driver.get_screenshot_as_base64(), False)
-            print(f"模型的提示词是：{first_sentence}")
-            if first_sentence != "No":
-                self.append_history(first_sentence, "agent")
         possible_replies = self.get_response(text)
         msg = f"User's word: {text}\nPossible replies: {possible_replies}\nHistory: {self.dialog_history}"
         response = self.reply_parser.parse(msg, True)
+        self.append_history(text, "user")
         self.append_history(response, "agent")
         print(f"模型的回复是：{response}")
         return True
@@ -123,4 +134,7 @@ class Chater:
         # 之后开始循环问答
         while self.one_round():
             pass
+        with open("./data/history.txt", "a", encoding="utf-8") as f:
+            f.truncate(0)
+            f.write("\n".join(self.full_history) + "\n")
         shutil.rmtree("./tmp")

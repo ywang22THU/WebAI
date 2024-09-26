@@ -2,12 +2,9 @@ import re
 import os
 import shutil
 from threading import Thread, Lock
-from collections import Counter
 from urllib.parse import urlparse
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.remote.webelement import WebElement
-from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.webdriver import WebDriver
 from bs4 import BeautifulSoup
 from bs4.element import Tag
@@ -16,10 +13,13 @@ from locate import Locator
 from open import Opener
 from cache import cache_handler
 from utils import save_to_json, LanguageParser, PictureParser, save_to_html
-from functools import reduce
+from concurrent.futures import ThreadPoolExecutor
+import requests
 import time
 
 catagory_lock = Lock()
+tab_lock = Lock()
+intro_lock = Lock()
 
 class SearchEngine: 
     """搜索引擎类"""
@@ -83,11 +83,21 @@ class SearchEngine:
         Thread(target=_get_classification).start()
     
     # 在url界面中找到简介
-    def find_introduction(self, keyword, html, hint = ''):
+    def find_introduction(self, url, keyword, html, hints = []):
         soup = BeautifulSoup(html, 'html.parser')
         body: Tag = soup.find('body')
         raw = body.get_text()
-        content = re.sub(r'\s+', ' ', raw)[:10000]
+        need_login = self.cache_handler.get_data(self.init_url, "need_login")
+        if need_login == False:
+            resp = requests.get(f"https://r.jina.ai/{url}")
+            if resp.status_code != 200:
+                content = re.sub(r'\s+', ' ', raw)[:10000]
+            else:
+                pattern = r'\[(.*?)\]\(.*?\)'
+                content = re.sub(pattern, r'\1', raw)[:10000]
+        else:
+            content = re.sub(r'\s+', ' ', raw)[:10000]
+        hint = '\n'.join(hints)
         raw = self.introduction_parser.parse(f"keyword: {keyword}\ncontent: {content}", clear_history=True)
         intro_text = self.introduction_parser.parse(f"keyword: {keyword}\nhint: {hint}\ncontent: {raw}", clear_history=True)
         return intro_text 
@@ -131,14 +141,23 @@ class SearchEngine:
     
     def result_parse(self, url, keyword):
         result_urls = self.opener.find_urls(url, {'keyword': keyword})
-        intro = ''
-        for result_url in result_urls:
+        intro = []
+        def _parse_one_url(result_url, keyword, intro: list):
+            tab_lock.acquire()
             print(f"Handling {result_url}")
             self.driver.get(result_url)
             html = self.get_html(result_url)
+            tab_lock.release()
             source = f" 来源：{result_url}\n"
-            intro += self.find_introduction(keyword, html, intro) + source
-        introduction = self.introduction_parser.parse(f"keyword: {keyword}\ntype: {self.catagory}\ncontent: {intro}", clear_history=True)
+            one_intro = self.find_introduction(result_url, keyword, html, intro) + source
+            intro_lock.acquire()
+            intro.append(one_intro) # 使用列表保证能够正常修改
+            intro_lock.release()
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            executor.map(lambda result_url: _parse_one_url(result_url, keyword, intro), result_urls)
+        intro_lock.acquire()
+        introduction = self.introduction_parser.parse(f"keyword: {keyword}\ntype: {self.catagory}\ncontent: {'\n'.join(intro)}", clear_history=True)
+        intro_lock.release()
         return result_urls, introduction
     
     # 查询操作
